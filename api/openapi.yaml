@@ -1,0 +1,280 @@
+openapi: 3.0.3
+info:
+  title: Home/Office Inference API
+  version: 0.1.0-cp1-draft
+  description: |
+    
+    API trả về home và office suy ra từ dữ liệu GPS GeoLife 1.3 cho từng user, kèm độ tin cậy.
+
+    **Về `confidence`.** Đây là độ chắc của quy tắc bỏ phiếu (D18), tính bằng %: bốc lại ngẫu nhiên (có hoàn lại) các
+    đêm / ngày làm việc có phiếu của user 200 lần, bỏ phiếu lại, và đếm % lần vẫn ra cùng nơi. Dưới 7 phiếu thì
+    `confidence` là `null` và có cờ `few_nights` / `few_workdays` (với ít phiếu cùng một nơi, bốc lại luôn ra 100%).
+    Nó **không phải xác suất kết quả đúng**: dữ liệu không có đáp án home/office (A13), nên chưa được hiệu chuẩn.
+
+    **Về dữ liệu.** Khoảng 90% giờ stay đến từ khoảng trống khi máy tắt (A12), vì vậy mỗi địa điểm kèm `gps_share`
+    (phần giờ có GPS thật) để người dùng API tự đánh giá.
+
+servers:
+  - url: http://localhost:8000
+    description: Chạy cục bộ
+tags:
+  - name: locations
+    description: Home và office của user
+  - name: places
+    description: Các địa điểm của user
+  - name: meta
+    description: Trạng thái dịch vụ
+paths:
+  /health:
+    get:
+      tags: [meta]
+      summary: Kiểm tra dịch vụ còn chạy
+      operationId: getHealth
+      responses:
+        '200':
+          description: Dịch vụ hoạt động
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, model_version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  model_version:
+                    type: string
+                    example: home_office_v1
+  /users:
+    get:
+      tags: [locations]
+      summary: Danh sách user và trạng thái xác định home/office
+      operationId: listUsers
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+        - name: offset
+          in: query
+          schema: {type: integer, minimum: 0, default: 0}
+        - name: has_home
+          in: query
+          description: Chỉ lấy user đã (true) hoặc chưa (false) xác định được home
+          schema: {type: boolean}
+        - name: has_office
+          in: query
+          description: Chỉ lấy user đã (true) hoặc chưa (false) xác định được office
+          schema: {type: boolean}
+      responses:
+        '200':
+          description: Trang kết quả
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, items]
+                properties:
+                  total: {type: integer}
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserSummary'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /users/{user_id}/locations:
+    get:
+      tags: [locations]
+      summary: Home và office của một user
+      description: |
+        Trả về cả hai, mỗi mục có thể là `null` khi chưa xác định được; lý do nằm ở `flags`.
+        Trường hợp office trùng home: `office` là `null` và `flags` chứa `home_eq_office`.
+      operationId: getUserLocations
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Home và office kèm độ tin cậy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLocations'
+              example:
+                user_id: '002'
+                home:
+                  place_id: 0
+                  lat: 39.9263
+                  lon: 116.3372
+                  confidence: 100.0
+                  n_votes: 66
+                  components: {share: 0.80, margin: 0.74, stable: 1.0, gps_share: 0.13}
+                office:
+                  place_id: 1
+                  lat: 39.8998
+                  lon: 116.3853
+                  confidence: 100.0
+                  n_votes: 44
+                  components: {share: 0.75, margin: 0.55, stable: 1.0, gps_share: 0.04}
+                flags: []
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/{user_id}/places:
+    get:
+      tags: [places]
+      summary: Các địa điểm của user, sắp theo tổng thời gian ở lại
+      description: '`place_id` 0 là nơi ở lâu nhất (D8). `role` cho biết địa điểm đó được gán home, office hay không.'
+      operationId: getUserPlaces
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Danh sách địa điểm
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user_id, items]
+                properties:
+                  user_id: {type: string}
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Place'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  parameters:
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      description: Mã user GeoLife, ba chữ số (ví dụ `002`)
+      schema:
+        type: string
+        pattern: '^[0-9]{3}$'
+  responses:
+    NotFound:
+      description: Không có user này
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Tham số không hợp lệ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: user_not_found
+        message:
+          type: string
+    Flag:
+      type: string
+      description: |
+        Lý do kết quả thiếu hoặc kém chắc.
+        `no_stays`: user không có stay. `no_night`, `no_workday`: không có phiếu đêm / ngày làm việc.
+        `few_nights`, `few_workdays`: dưới 7 phiếu (A11); vẫn có kết quả nhưng `confidence` là `null`.
+        `home_eq_office`: nơi thắng phiếu office trùng home nên office để trống.
+        `unstable_home`, `unstable_office`: độ ổn định dưới 0,5.
+      enum: [no_stays, no_night, no_workday, few_nights, few_workdays, home_eq_office, unstable_home, unstable_office]
+    Components:
+      type: object
+      description: Các số báo cáo thêm về phiếu bầu (mỗi cái 0 đến 1). Không tính vào `confidence`.
+      required: [share, margin, stable, gps_share]
+      properties:
+        share:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Tỉ lệ phiếu của nơi thắng
+        margin:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Chênh lệch tỉ lệ phiếu với nơi thứ hai
+        stable:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Tỉ lệ phép thử (tuần chẵn / lẻ, nửa đầu / nửa sau, biến thể khung giờ) cho cùng nơi thắng; dưới 0,5 thì có cờ unstable_*
+        gps_share:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Phần giờ ở địa điểm đó có GPS thật (không tính vào confidence)
+    Location:
+      type: object
+      required: [place_id, lat, lon, confidence, n_votes, components]
+      properties:
+        place_id:
+          type: integer
+          minimum: 0
+        lat: {type: number, minimum: -90, maximum: 90}
+        lon: {type: number, minimum: -180, maximum: 180}
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "% lần bốc lại các phiếu vẫn ra nơi này (200 lần). null khi dưới 7 phiếu. Độ chắc của quy tắc, không phải xác suất đúng"
+        n_votes:
+          type: integer
+          minimum: 0
+          description: Số đêm (home) hoặc ngày làm việc (office) có phiếu
+        components:
+          $ref: '#/components/schemas/Components'
+    UserLocations:
+      type: object
+      required: [user_id, home, office, flags]
+      properties:
+        user_id: {type: string}
+        home:
+          allOf:
+            - $ref: '#/components/schemas/Location'
+          nullable: true
+        office:
+          allOf:
+            - $ref: '#/components/schemas/Location'
+          nullable: true
+        flags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Flag'
+    UserSummary:
+      type: object
+      required: [user_id, has_home, has_office, flags]
+      properties:
+        user_id: {type: string}
+        has_home: {type: boolean}
+        has_office: {type: boolean}
+        flags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Flag'
+    Place:
+      type: object
+      required: [place_id, lat, lon, total_hours, n_stays, gps_share, role]
+      properties:
+        place_id: {type: integer, minimum: 0}
+        lat: {type: number}
+        lon: {type: number}
+        total_hours:
+          type: number
+          description: Tổng giờ stay ở địa điểm (gồm cả gap-stay)
+        n_stays: {type: integer}
+        gps_share:
+          type: number
+          minimum: 0
+          maximum: 1
+        role:
+          type: string
+          enum: [home, office, other]

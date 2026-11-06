@@ -1,0 +1,20 @@
+# Dữ liệu (lớn, tải riêng)
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Kết quả đào sâu timestamp trùng (notebook 01, có thể nặng)
+reports/duplicates/

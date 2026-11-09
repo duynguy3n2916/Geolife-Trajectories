@@ -21,3 +21,5 @@ reports/duplicates/
 
 # Hình xuất từ notebook để dán vào slide
 reports/_fig_slide/
+
+docs/

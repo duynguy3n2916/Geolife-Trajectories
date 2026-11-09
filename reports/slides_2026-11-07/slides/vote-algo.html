@@ -1,0 +1,29 @@
+<section id="vote-algo" data-transition="fade" style="background:#fbfbf8;color:#1d2330;font-family:'IBM Plex Sans', Arial, sans-serif;padding:96px 128px 160px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:26px;font-weight:600;color:#1f4e8c;text-transform:uppercase;letter-spacing:2px">IV · Bước 7 · home / office · places/home_office_conf.py · D18</p>
+<h2 style="font-family:'EB Garamond', Georgia, serif;font-size:52px;font-weight:600;line-height:1.1;width:1600px">Mỗi đêm và mỗi ngày làm việc bỏ một phiếu; nơi nhiều phiếu nhất thắng</h2>
+<div style="display:flex;gap:24px">
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;background:#ffffff;padding:24px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:28px;font-weight:600;color:#1f4e8c">Home</p>
+<p style="font-size:25px;line-height:1.4">Mỗi đêm (20 đến 7h mọi ngày), địa điểm có nhiều phút nhất (ít nhất 60 phút) được 1 phiếu. Home là nơi nhiều phiếu đêm nhất.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;background:#ffffff;padding:24px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:28px;font-weight:600;color:#1f4e8c">Office</p>
+<p style="font-size:25px;line-height:1.4">Mỗi ngày làm việc T2 đến T6, trong 9 đến 18h (không loại giờ trưa), nơi nhiều phút nhất được 1 phiếu. Nếu nơi thắng trùng home thì office để trống, cờ home_eq_office.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;background:#ffffff;padding:24px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:28px;font-weight:600;color:#1f4e8c">Lịch lễ Trung Quốc</p>
+<p style="font-size:25px;line-height:1.4">Với user ở Trung Quốc, bỏ ngày nghỉ lễ rơi vào T2 đến T6 và thêm ngày làm bù T7 hoặc CN. Chỉ ảnh hưởng phiếu office. User ngoài Trung Quốc dùng T2 đến T6.</p>
+</div>
+</div>
+<div style="display:flex;gap:24px">
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;background:#ffffff;padding:24px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:26px;font-weight:600;color:#9a3412">Vì sao đếm theo số phút chồng lên khung</p>
+<p style="font-size:25px;line-height:1.4">Khoảng 90% giờ stay là khoảng trống, nên một stay dài vắt qua cả đêm lẫn giờ làm. Đếm theo phút thì người ra ngoài ăn trưa không mất phiếu.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;background:#ffffff;padding:24px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:26px;font-weight:600;color:#9a3412">Không dùng và giới hạn</p>
+<p style="font-size:25px;line-height:1.4">Không có quy tắc riêng cho gap qua đêm (D14). Không có nhãn home/office nên chưa đo độ đúng. WFH và ca đêm chưa xử lý ngoài cờ home_eq_office. Lịch lễ sinh từ thư viện chinesecalendar, chưa đối chiếu nguồn gốc.</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#5b6472">Nguồn: notes/decisions.md (D14, D18), notes/assumptions.md (A10, A13) · khung giờ chốt 07/11/2026</p>
+</section>

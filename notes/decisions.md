@@ -76,13 +76,13 @@ Mã: `src/places/home_office_conf.py`, chạy `python -m src.places.home_office_
 - **Confidence:** tính bằng %, lấy mẫu lại (bootstrap): bốc lại ngẫu nhiên, có hoàn lại, đúng số đêm (hoặc ngày làm việc) có phiếu của user, bỏ phiếu lại, lặp N lần (200, hạt giống 20261106); confidence = % lần vẫn ra cùng nơi (hoà thì chia đều). Một con số. Dưới số phiếu tối thiểu (A11, 7, chốt 2026-11-07 như quy ước): vẫn trả home / office, confidence để trống, cờ `few_nights` / `few_workdays`. Đây là độ chắc của quy tắc, không phải xác suất đúng (A13).
 - **Cờ:** `no_stays`, `no_night`, `no_workday`, `few_nights`, `few_workdays`, `home_eq_office`, `unstable_home`, `unstable_office`.
 - **Chưa làm:** giả định mỗi user một home cho cả thời gian dữ liệu (chuyển nhà chưa có cờ riêng; Duy không muốn thêm cờ `home_moved`); `cluster_v1` có thể cắt đôi một nơi (để v2 DBSCAN); chưa xử lý riêng ca đêm và WFH ngoài cờ `home_eq_office`.
-- **Kết quả chạy:** chưa có (chạy lại sau khi tuning xong).
+- **Kết quả chạy:** đã chạy 2026-11-09 trên validation và test cho v1 và v2: `reports/home_office_v1_val.csv`, `home_office_v2_val.csv`, `home_office_v1_test.csv`, `home_office_v2_test.csv`.
 
 ### D19. Kiểm tra trên nhóm test: chạy một lần sau khi khoá cấu hình
 Chạy bằng `notebooks/test/15_test.ipynb` (T1 in cấu hình, T2–T4 đặt validation và test cạnh nhau). Quy trình:
 1. **Khoá cấu hình:** ghi ngày khoá và toàn bộ giá trị đã chọn ở tuning vào đây.
-2. **Chạy một lần:** `python -m src.places.home_office_conf --test` (ghi `reports/home_office_v1_test.csv`), lưu file riêng, không ghi đè kết quả validation.
+2. **Chạy một lần:** `python -m src.places.home_office_conf --test --version v1` và `--version v2` (ghi `reports/home_office_v1_test.csv`, `home_office_v2_test.csv`), lưu file riêng, không ghi đè kết quả validation.
 3. **Đo đúng những thước đo đã dùng ở validation, đặt cạnh số validation:** tỉ lệ stay báo nhầm theo nhãn phương tiện; tỉ lệ có home / office và các cờ; phân bố confidence; nửa đầu / nửa sau trùng nơi theo mức confidence (notebook 13, mục 4).
 4. **Không sửa gì sau khi xem số test.** Lệch nhiều so với validation thì ghi là hạn chế. Nếu vẫn sửa thì số test cũ không còn là số test, phải ghi rõ.
 
-**Trạng thái: chưa chạy** (lần chạy ngày 2026-11-06 thuộc bản chia cũ nên đã bỏ). Test chỉ đo độ ổn định và khả năng lặp lại trên user mới, không đo độ đúng vì không có nhãn home / office (A13). Không làm gán tay (mentor chốt 2026-11-06).
+**Trạng thái: đã chạy một lần ngày 2026-11-09**, cho cả v1 và v2 (`reports/home_office_v1_test.csv`, `home_office_v2_test.csv`); số và kết luận ở `notebooks/test/15_test.ipynb`. Hạn chế ghi nhận: v2 gộp home với office mới ở 6 trong 56 user test (validation 3 trong 108). Không chạy lại và không sửa ngưỡng dựa trên số test; sửa v2 thì phải tuning lại trên validation và ghi rõ số test này không còn sạch. (Lần chạy ngày 2026-11-06 thuộc bản chia cũ nên đã bỏ.) Test chỉ đo độ ổn định và khả năng lặp lại trên user mới, không đo độ đúng vì không có nhãn home / office (A13). Không làm gán tay (mentor chốt 2026-11-06).

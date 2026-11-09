@@ -1,0 +1,24 @@
+<section id="filter-results" data-transition="fade" style="background:#fbfbf8;color:#1d2330;font-family:'IBM Plex Sans', Arial, sans-serif;padding:96px 128px 160px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:26px;font-weight:600;color:#1f4e8c;text-transform:uppercase;letter-spacing:2px">II · Kết quả lọc · reports/filter_stats.csv</p>
+<h2 style="font-family:'EB Garamond', Georgia, serif;font-size:52px;font-weight:600;line-height:1.1;width:1600px">Giữ lại 99,2% số điểm ở validation; phần bỏ đi gần hết là dòng trùng</h2>
+<div style="display:flex;gap:48px">
+<table style="font-size:28px;color:#1d2330;width:1000px">
+<tr><th style="width:46%;text-align:left">Bước</th><th style="width:30%;text-align:right">Số điểm</th><th style="width:24%;text-align:right">% điểm thô</th></tr>
+<tr><td>Điểm thô</td><td style="text-align:right">14.383.749</td><td style="text-align:right">100%</td></tr>
+<tr><td>1 · Tọa độ sai</td><td style="text-align:right">1</td><td style="text-align:right">0,0000%</td></tr>
+<tr><td>1 · Thời gian sai</td><td style="text-align:right">3</td><td style="text-align:right">0,0000%</td></tr>
+<tr><td>2 · Dòng trùng (gộp về dòng đầu)</td><td style="text-align:right">114.434</td><td style="text-align:right">0,7956%</td></tr>
+<tr><td>2 · Nhóm trùng lệch &gt; 83 m (xoá cả nhóm)</td><td style="text-align:right">362</td><td style="text-align:right">0,0025%</td></tr>
+<tr><td>3 · Chuỗi outlier (≤ 5 điểm)</td><td style="text-align:right">399</td><td style="text-align:right">0,0028%</td></tr>
+<tr style="background:#dbe8f7"><td><b>Còn lại</b></td><td style="text-align:right"><b>14.268.550</b></td><td style="text-align:right"><b>99,1991%</b></td></tr>
+</table>
+<table style="font-size:26px;color:#1d2330;width:600px">
+<tr><th style="width:62%;text-align:left">Số user bị ảnh hưởng</th><th style="width:38%;text-align:right">Trên 115</th></tr>
+<tr><td>Có dòng trùng</td><td style="text-align:right">46</td></tr>
+<tr><td>Có nhóm trùng bị xoá cả nhóm</td><td style="text-align:right">11</td></tr>
+<tr><td>Có chuỗi outlier</td><td style="text-align:right">13</td></tr>
+</table>
+</div>
+<p style="font-size:26px;line-height:1.4;color:#3b4252;width:1664px">Bước thêm giờ địa phương không bỏ điểm nào. Tổng số điểm bỏ đi là 114.434 + 362 + 399 + 4 = 115.199.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#5b6472">Nguồn: reports/filter_stats.csv, 115 user validation, 12.376 file · A3 83 m, A5 300 km/h, A6 N = 5 (chốt 07/11)</p>
+</section>

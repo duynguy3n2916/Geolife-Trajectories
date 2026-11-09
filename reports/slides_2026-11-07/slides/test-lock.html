@@ -1,0 +1,24 @@
+<section id="test-lock" data-transition="fade" style="background:#fbfbf8;color:#1d2330;font-family:'IBM Plex Sans', Arial, sans-serif;padding:96px 128px 160px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:26px;font-weight:600;color:#1f4e8c;text-transform:uppercase;letter-spacing:2px">IV · Kiểm tra trên nhóm test · D19</p>
+<h2 style="font-family:'EB Garamond', Georgia, serif;font-size:52px;font-weight:600;line-height:1.1;width:1600px">Nhóm test (57 user) chỉ chạy một lần, sau khi khoá cấu hình dưới đây</h2>
+<div style="display:flex;gap:40px">
+<table style="font-size:26px;color:#1d2330;width:1000px">
+<tr><th style="width:34%;text-align:left">Bước</th><th style="width:36%;text-align:left">Giá trị khoá</th><th style="width:30%;text-align:left">Mã</th></tr>
+<tr><td>Dòng trùng</td><td>Giữ dòng đầu; bỏ nhóm lệch &gt; 83 m</td><td>A3</td></tr>
+<tr><td>Tốc độ tối đa</td><td>300 km/h</td><td>A5</td></tr>
+<tr><td>Chuỗi outlier</td><td>≤ 5 điểm</td><td>A6</td></tr>
+<tr><td>Khoảng trống</td><td>&gt; 30 phút</td><td>A7</td></tr>
+<tr><td>Stay point</td><td>D = 200 m, T = 30 phút, neo h1_mean</td><td>A14, D13</td></tr>
+<tr><td>Max gap</td><td>24 giờ</td><td>D16</td></tr>
+<tr><td>Bán kính địa điểm</td><td>200 m</td><td>A15</td></tr>
+<tr><td>Khung giờ</td><td>Đêm 20 đến 7h; làm việc 9 đến 18h</td><td>A10</td></tr>
+<tr><td>Phiếu tối thiểu</td><td>7; 60 phút mỗi ngày</td><td>A11</td></tr>
+</table>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#ffffff;padding:28px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:28px;font-weight:600;color:#9a3412">Chưa có kết quả</p>
+<p style="font-size:26px;line-height:1.4">Nhóm test chưa được mở. Không có số nào trong bộ slide này đến từ test.</p>
+<p style="font-size:26px;line-height:1.4">Việc cần làm trước khi chạy: chốt D14 (gap-stay) và chạy lại clean, detect, cluster_v1, home_office_conf với cấu hình khoá.</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#5b6472">Nguồn: notes/decisions.md (D17, D19), notes/assumptions.md · notebooks/test/14_test.ipynb</p>
+</section>

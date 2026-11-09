@@ -1,0 +1,30 @@
+<section id="outlier-explain" data-transition="fade" style="background:#fbfbf8;color:#1d2330;font-family:'IBM Plex Sans', Arial, sans-serif;padding:96px 128px 160px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:26px;font-weight:600;color:#1f4e8c;text-transform:uppercase;letter-spacing:2px">II · Bước 3 · outlier · vì sao chỉ tốc độ là chưa đủ · A5</p>
+<h2 style="font-family:'EB Garamond', Georgia, serif;font-size:52px;font-weight:600;line-height:1.1;width:1600px">Tốc độ cao chưa chắc là lỗi: điều phân biệt là có quay về hay không</h2>
+<div style="display:flex;gap:32px">
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#ffffff;padding:28px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:28px;font-weight:600;color:#9a3412">Điểm GPS sai: nhảy ra rồi quay về</p>
+<table style="font-size:24px;color:#1d2330">
+<tr><th style="width:24%;text-align:left">Giờ</th><th style="width:34%;text-align:left">Điểm</th><th style="width:16%;text-align:left">Bước</th><th style="width:26%;text-align:right">Tốc độ</th></tr>
+<tr><td>10:00:00</td><td>A</td><td>–</td><td style="text-align:right">–</td></tr>
+<tr><td>10:00:05</td><td>X (cách A 30 km)</td><td>A→X</td><td style="text-align:right">≈ 21.600 km/h</td></tr>
+<tr><td>10:00:10</td><td>B (cách A 50 m)</td><td>X→B</td><td style="text-align:right">≈ 21.600 km/h</td></tr>
+<tr><td colspan="1">Bỏ X</td><td></td><td>A→B</td><td style="text-align:right">18 km/h</td></tr>
+</table>
+<p style="font-size:24px;line-height:1.4;color:#3b4252">A và B khớp nhau, chỉ X lệch: biết chắc X sai, xoá được.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#ffffff;padding:28px;border:1px solid #dfe3ea;border-radius:14px">
+<p style="font-size:28px;font-weight:600;color:#1f4e8c">Máy bay: nhanh nhưng đi một chiều</p>
+<table style="font-size:24px;color:#1d2330">
+<tr><th style="width:24%;text-align:left">Giờ</th><th style="width:34%;text-align:left">Điểm</th><th style="width:16%;text-align:left">Bước</th><th style="width:26%;text-align:right">Tốc độ</th></tr>
+<tr><td>14:00:00</td><td>A (sân bay)</td><td>–</td><td style="text-align:right">–</td></tr>
+<tr><td>14:00:05</td><td>P1 (cách A 1,1 km)</td><td>A→P1</td><td style="text-align:right">≈ 800 km/h</td></tr>
+<tr><td>14:00:10</td><td>P2 (cách A 2,2 km)</td><td>P1→P2</td><td style="text-align:right">≈ 800 km/h</td></tr>
+<tr><td>Bỏ P1</td><td></td><td>A→P2</td><td style="text-align:right">vẫn ≈ 800 km/h</td></tr>
+</table>
+<p style="font-size:24px;line-height:1.4;color:#3b4252">Không điểm nào quay về nên không có cặp A, B khớp nhau: không bị coi là lỗi.</p>
+</div>
+</div>
+<p style="font-size:26px;line-height:1.4;color:#3b4252;width:1664px">Nếu chỉ xoá theo tốc độ &gt; 300 km/h thì mọi chuyến bay bị xoá sạch (máy bay trung vị 668 km/h). Outlier phải thoả cả bốn: bước vào &gt; 300 km/h, bước ra &gt; 300 km/h, mỗi bước có dt ≤ 30 phút, và A→B ≤ 300 km/h. Tàu (p99,9 = 237 km/h) vẫn dưới ngưỡng.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#5b6472">Nguồn: notes/assumptions.md (A5, A6) · notebooks/survey/02 · ví dụ minh hoạ, không phải dữ liệu thật</p>
+</section>

@@ -1,0 +1,22 @@
+<section id="prin" data-transition="fade" style="background:#fbfbf8;color:#1d2330;font-family:'IBM Plex Sans', Arial, sans-serif;padding:96px 128px 160px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:26px;font-weight:600;color:#1f4e8c;text-transform:uppercase;letter-spacing:2px">II · Tiền xử lý · nguyên tắc</p>
+<h2 style="font-family:'EB Garamond', Georgia, serif;font-size:52px;font-weight:600;line-height:1.1;width:1600px">Thứ tự lọc và vì sao theo thứ tự đó</h2>
+<div style="display:flex;gap:16px;align-items:stretch">
+<div style="flex:1;background:#ffffff;padding:20px 24px;border:1px solid #dfe3ea;border-radius:14px"><p style="font-size:24px;color:#5b6472">1 · Xoá</p><p style="font-size:28px;font-weight:600">Tọa độ, thời gian sai</p></div>
+<x-shape kind="arrow-right" style="background:#9aa6bf;width:48px;height:32px"></x-shape>
+<div style="flex:1;background:#ffffff;padding:20px 24px;border:1px solid #dfe3ea;border-radius:14px"><p style="font-size:24px;color:#5b6472">2 · Xoá</p><p style="font-size:28px;font-weight:600">Timestamp trùng</p></div>
+<x-shape kind="arrow-right" style="background:#9aa6bf;width:48px;height:32px"></x-shape>
+<div style="flex:1;background:#ffffff;padding:20px 24px;border:1px solid #dfe3ea;border-radius:14px"><p style="font-size:24px;color:#5b6472">3 · Xoá</p><p style="font-size:28px;font-weight:600">Chuỗi outlier</p></div>
+<x-shape kind="arrow-right" style="background:#9aa6bf;width:48px;height:32px"></x-shape>
+<div style="flex:1;background:#ffffff;padding:20px 24px;border:1px solid #dfe3ea;border-radius:14px"><p style="font-size:24px;color:#5b6472">4 · Thêm</p><p style="font-size:28px;font-weight:600">Giờ địa phương</p></div>
+</div>
+<table style="font-size:26px;color:#1d2330">
+<tr><th style="width:24%;text-align:left">Bước</th><th style="width:76%;text-align:left">Vì sao ở vị trí này</th></tr>
+<tr><td>1 trước tiên</td><td>Một timestamp sai làm sai mọi tốc độ quanh nó.</td></tr>
+<tr><td>2 trước khi tính tốc độ</td><td>Hai điểm cùng timestamp cho dt = 0, tốc độ không xác định.</td></tr>
+<tr><td>3 sau 1 và 2</td><td>Dò chuỗi cần tốc độ đúng giữa hai điểm liền nhau; bước có dt &gt; 30 phút là máy tắt nên không dò qua (A7).</td></tr>
+<tr><td>4 sau cùng</td><td>Bước 1 đến 3 chỉ dùng UTC; giờ địa phương chỉ cho phân tích theo giờ trong ngày.</td></tr>
+</table>
+<p style="font-size:26px;line-height:1.4;color:#3b4252;width:1664px">Chỉ xoá khi biết điểm nào sai (D4): lỗi dữ liệu, bản trùng, chuỗi nhảy ra rồi quay về. Khoảng trống và cú nhảy một chiều không biết bên nào sai nên để nguyên. Không cắt segment (D10): stay point cố ý chạy xuyên khoảng trống. Mỗi file .plt được lọc riêng.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#5b6472">Nguồn: notes/decisions.md (D3, D4, D5, D10) · ngưỡng chọn ở notebooks/tuning, ghi trong notes/assumptions.md</p>
+</section>

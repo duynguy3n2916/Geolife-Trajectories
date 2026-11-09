@@ -12,8 +12,6 @@ Home_Office/
 ├── requirements.txt
 ├── .gitignore
 ├── api/                     openapi.yaml: bản nháp OpenAPI spec, review với mentor trước khi code
-├── docs/
-│   └── cp1_slides.html      slide tổng kết Checkpoint 1 (mở bằng trình duyệt; ← → chuyển slide, Ctrl+P xuất PDF)
 ├── notes/
 │   ├── assumptions.md       ngưỡng và giả định, kèm căn cứ
 │   └── decisions.md         các quyết định thiết kế, theo ngày
@@ -80,6 +78,7 @@ Home_Office/
 │       └── utils.py              hàm nhỏ (phân vị từ histogram, định dạng nhãn)
 ├── tests/                   pytest: gom cụm, bỏ phiếu, infer (python -m pytest tests)
 └── reports/
+    ├── cp1_slides.html      slide tổng kết Checkpoint 1; slide đều để ở reports/ (mở bằng trình duyệt; ← → chuyển slide, Ctrl+P xuất PDF)
     └── filter_stats.csv     số liệu lọc theo user
 ```
 
@@ -147,13 +146,13 @@ python -m pytest tests
 |---|---|---|---|
 | 1 | Đọc, kiểm tra định dạng | xong | `src/preprocess/check_raw_format.py` |
 | 2 | Chuyển dữ liệu thô sang data/interim | xong | `src/preprocess/convert_raw.py` |
-| 3 | Khảo sát toàn bộ dữ liệu (chỉ mô tả, chưa chọn ngưỡng) | cần chạy lại | `notebooks/survey/` |
+| 3 | Khảo sát toàn bộ dữ liệu (chỉ mô tả, chưa chọn ngưỡng) | xong 2026-11-07 (bản chia mới) | `notebooks/survey/` |
 | 3b | Chia validation / test, gom user trùng file (D17) | xong 2026-11-07 | `src/eda/split.py` |
-| 3c | Chọn ngưỡng, chỉ nhóm validation | cần chạy lại trên bản chia mới | `notebooks/tuning/` |
-| 4 | Lọc tọa độ, thời gian, trùng, chuỗi outlier (A3, A5, A6 đã chốt); thêm giờ địa phương (không cắt segment, D10) | cần chạy lại sau tuning | `src/preprocess/clean_trajectory.py` |
-| 5 | Stay point (Li et al., 2008; D = 200 m, T = 30 phút, max gap 24 giờ, neo h1_mean đã chốt) | cần chạy lại sau tuning | `src/stays/detect.py` |
-| 6 | Gom cụm địa điểm: v1 tham lam quanh điểm neo (bán kính 200 m); v2 DBSCAN `eps` 200 m (D20) | v1 cần chạy lại; v2 chạy 2026-11-09 trên validation (`eps` 200 m) | `src/places/cluster_v1.py`, `src/places/cluster_v2.py` |
-| 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | cần chạy lại; test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/test/15_test.ipynb` |
+| 3c | Chọn ngưỡng, chỉ nhóm validation | 05–13 xong 2026-11-07; 14 xong 2026-11-09; 13 chưa chạy lại trên kết quả bước 7 mới | `notebooks/tuning/` |
+| 4 | Lọc tọa độ, thời gian, trùng, chuỗi outlier (A3, A5, A6 đã chốt); thêm giờ địa phương (không cắt segment, D10) | xong 2026-11-07 | `src/preprocess/clean_trajectory.py` |
+| 5 | Stay point (Li et al., 2008; D = 200 m, T = 30 phút, max gap 24 giờ, neo h1_mean đã chốt) | xong 2026-11-07 | `src/stays/detect.py` |
+| 6 | Gom cụm địa điểm: v1 tham lam quanh điểm neo (bán kính 200 m); v2 DBSCAN `eps` 200 m (D20) | v1 và v2 xong 2026-11-09 (mọi user, `eps` 200 m) | `src/places/cluster_v1.py`, `src/places/cluster_v2.py` |
+| 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | xong 2026-11-09 cho v1 và v2, gồm test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/test/15_test.ipynb` |
 | – | OpenAPI spec (làm song song, review với mentor trước khi code API) | bản nháp, chờ review | `api/openapi.yaml` |
 
 Ngưỡng và giả định: xem `notes/assumptions.md` (tất cả đã chốt 2026-11-07; A11 và A15 là quy ước, A11 kiểm lại ở `notebooks/tuning/13`). Mục ("mục N") đánh số riêng trong từng notebook; tham chiếu từ file khác ghi kèm tên notebook, ví dụ "mục 2.1 (notebook 11)". Mục của từng notebook: xem cây thư mục ở đầu file.

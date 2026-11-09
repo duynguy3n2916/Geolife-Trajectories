@@ -1,0 +1,23 @@
+<section id="step7" data-transition="fade" style="background:#fbfbf8;color:#1d2330;font-family:'IBM Plex Sans', Arial, sans-serif;padding:112px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<p style="font-size:26px;font-weight:600;color:#1f4e8c;text-transform:uppercase;letter-spacing:2px">Kết quả bước 7 trên validation · tuning 13, mục 5</p>
+<h2 style="font-family:'EB Garamond', Georgia, serif;font-size:64px;font-weight:600;line-height:1.1;width:1500px">Một nửa số user thiếu đủ 7 phiếu nên chỉ có cờ, không có confidence</h2>
+<div style="display:flex;gap:56px">
+<table style="font-size:28px;color:#1d2330;width:760px">
+<tr><th style="width:46%;text-align:left">115 user</th><th style="width:27%;text-align:right">Home</th><th style="width:27%;text-align:right">Office</th></tr>
+<tr><td>Có kết quả</td><td style="text-align:right">100</td><td style="text-align:right">56</td></tr>
+<tr><td>Có confidence</td><td style="text-align:right">59</td><td style="text-align:right">33</td></tr>
+<tr><td>Trung vị confidence</td><td style="text-align:right">89,2%</td><td style="text-align:right">96,2%</td></tr>
+</table>
+<table style="font-size:28px;color:#1d2330;width:860px">
+<tr><th style="width:62%;text-align:left">Cờ</th><th style="width:38%;text-align:right">Số user</th></tr>
+<tr><td>few_workdays</td><td style="text-align:right">59</td></tr>
+<tr><td>few_nights</td><td style="text-align:right">49</td></tr>
+<tr><td>home_eq_office</td><td style="text-align:right">30</td></tr>
+<tr><td>no_workday</td><td style="text-align:right">22</td></tr>
+<tr><td>no_night, no_stays</td><td style="text-align:right">8, 7</td></tr>
+<tr><td>unstable_home, unstable_office</td><td style="text-align:right">7, 3</td></tr>
+</table>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#5b6472">Nguồn: home_office_v1_val.csv, notebooks/tuning/13 · một user có thể có nhiều cờ</p>
+<aside>Số user có kết quả nhưng không có confidence vẫn nhận home/office, chỉ bật cờ few_nights hoặc few_workdays.</aside>
+</section>

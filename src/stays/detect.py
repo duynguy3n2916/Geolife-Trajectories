@@ -47,11 +47,14 @@ SRC = Path(__file__).resolve().parents[1]                 # thư mục src
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 from preprocess import interim                                       # noqa: E402
-from preprocess.clean_trajectory import CLEAN_DIR, EPOCH, GAP_S, PROJECT_ROOT, haversine_m   # noqa: E402
+from geo import haversine_m                                         # noqa: E402
+from paths import PROJECT_ROOT                                       # noqa: E402
+from preprocess.clean_trajectory import CLEAN_DIR, EPOCH, GAP_S     # noqa: E402
 
 # =============================================================================
 # THAM SỐ (A12, A14 trong notes/assumptions.md)
 # =============================================================================
+# Chốt 2026-11-07: D = 200 m, T = 30 phút (A14), MAX_GAP_S = 24 giờ (D16), METHOD = h1_mean (D13).
 DIST_M = 200.0             # bán kính stay (mét); Li et al. (2008), mục 5.1.2: distThreh = 200 m
 TIME_S = 30 * 60           # thời gian tối thiểu ở trong bán kính (giây); Li et al. (2008), mục 5.1.2: timeThreh = 30 phút
 MAX_GAP_S = 24 * 3600      # khoảng trống dài hơn mức này thì không được tính vào stay (A12)

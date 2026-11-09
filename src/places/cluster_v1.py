@@ -20,26 +20,21 @@ Chạy:
 """
 from __future__ import annotations
 
-import argparse
 import sys
-import time
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
-SRC = Path(__file__).resolve().parents[1]
+SRC = Path(__file__).resolve().parents[1]                 # thư mục src
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-from preprocess import interim                                            # noqa: E402
-from preprocess.clean_trajectory import PROJECT_ROOT, haversine_m         # noqa: E402
-from stays.detect import STAYS_DIR                                        # noqa: E402
+from geo import haversine_m                              # noqa: E402
+from places import common                                # noqa: E402
+from places.common import PLACE_COLS                     # noqa: E402,F401 (PLACE_COLS: các module khác import từ đây)
 
 VERSION = "v1"
 RADIUS_M = 200.0           # bán kính địa điểm quanh stay neo (A15); bằng bán kính stay (A14)
-PLACES_DIR = PROJECT_ROOT / "data" / "processed" / f"places_{VERSION}"
-PLACE_COLS = ["user", "place_id", "lat", "lon", "lat_mean", "lon_mean", "n_stays", "n_days",
-              "total_hours", "gap_hours", "first_utc", "last_utc", "max_dist_m"]
+PLACES_DIR = common.places_dir(VERSION)
 
 
 def cluster_v1(lat, lon, duration, radius_m: float = RADIUS_M) -> np.ndarray:
@@ -60,85 +55,14 @@ def cluster_v1(lat, lon, duration, radius_m: float = RADIUS_M) -> np.ndarray:
     return pid
 
 
-def _days_covered(arrive_local: pd.Series, leave_local: pd.Series) -> set:
-    """Các ngày địa phương mà các stay chạm tới (stay qua đêm tính cả hai ngày)."""
-    days = set()
-    for a, b in zip(arrive_local.dt.normalize(), leave_local.dt.normalize()):
-        days.update(pd.date_range(a, b, freq="D").date)
-    return days
-
-
-def places_for_user(stays: pd.DataFrame, user: str, radius_m: float = RADIUS_M):
+def places_for_user(stays, user: str, radius_m: float = RADIUS_M):
     """Trả về (bảng địa điểm, bảng stay kèm place_id)."""
-    if stays is None or stays.empty:
-        return pd.DataFrame(columns=PLACE_COLS), (stays if stays is not None else pd.DataFrame())
-    s = stays.reset_index(drop=True).copy()
-    lat, lon = s["lat"].to_numpy(float), s["lon"].to_numpy(float)
-    s["place_id"] = cluster_v1(lat, lon, s["duration_min"].to_numpy(float), radius_m)
-
-    rows = []
-    for p, g in s.groupby("place_id", sort=True):
-        anchor = g["duration_min"].idxmax()                   # stay neo = stay dài nhất của địa điểm
-        w = g["duration_min"].to_numpy(float) + 1e-9
-        rows.append({
-            "user": user, "place_id": int(p),
-            "lat": float(s.at[anchor, "lat"]), "lon": float(s.at[anchor, "lon"]),
-            "lat_mean": float(np.average(g["lat"], weights=w)),
-            "lon_mean": float(np.average(g["lon"], weights=w)),
-            "n_stays": len(g), "n_days": len(_days_covered(g["arrive_local"], g["leave_local"])),
-            "total_hours": float(g["duration_min"].sum() / 60), "gap_hours": float(g["gap_min"].sum() / 60),
-            "first_utc": g["arrive_utc"].min(), "last_utc": g["leave_utc"].max(),
-            "max_dist_m": float(haversine_m(s.at[anchor, "lat"], s.at[anchor, "lon"],
-                                            g["lat"].to_numpy(float), g["lon"].to_numpy(float)).max()),
-        })
-    places = pd.DataFrame(rows, columns=PLACE_COLS).sort_values("total_hours", ascending=False, ignore_index=True)
-    # đánh số lại: place_id 0 là địa điểm có tổng thời gian lớn nhất
-    remap = dict(zip(places["place_id"], range(len(places))))
-    places["place_id"] = np.arange(len(places))
-    s["place_id"] = s["place_id"].map(remap)
-    return places, s
-
-
-def load_places(user: str, places_dir: Path = PLACES_DIR):
-    """(bảng địa điểm, bảng stay kèm place_id) của một user."""
-    return interim.read_df(Path(places_dir) / f"{user}_places"), interim.read_df(Path(places_dir) / f"{user}_stays")
-
-
-def _from_project(path: Path) -> Path:
-    return path if path.is_absolute() else PROJECT_ROOT / path
+    return common.build_places(stays, user, lambda lat, lon, dur: cluster_v1(lat, lon, dur, radius_m))
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Bước 6 (v1): gom stay point thành địa điểm quanh điểm neo.")
-    ap.add_argument("--users", nargs="*", help="chỉ chạy các user này")
-    ap.add_argument("--stays-dir", type=Path, default=STAYS_DIR)
-    ap.add_argument("--out-dir", type=Path, default=PLACES_DIR)
-    ap.add_argument("--stats", type=Path, default=Path(f"reports/place_stats_{VERSION}.csv"))
-    ap.add_argument("--radius-m", type=float, default=RADIUS_M)
-    args = ap.parse_args()
-    stays_dir, out_dir = _from_project(args.stays_dir), _from_project(args.out_dir)
-    users = interim.list_stems(stays_dir)
-    if args.users:
-        users = [u for u in users if u in set(args.users)]
-    if not users:
-        raise SystemExit(f"Không có stay trong {stays_dir}. Chạy src/stays/detect.py trước.")
-    rows, t0 = [], time.time()
-    for u in users:
-        places, s = places_for_user(interim.read_df(stays_dir / u), u, args.radius_m)
-        interim.save_df(places, out_dir / f"{u}_places")
-        interim.save_df(s, out_dir / f"{u}_stays")
-        top = places.iloc[0] if len(places) else None
-        total = places["total_hours"].sum() if len(places) else 0.0
-        rows.append({"user": u, "n_stays": len(s), "n_places": len(places),
-                     "n_places_2plus_days": int((places["n_days"] >= 2).sum()) if len(places) else 0,
-                     "top1_hours": float(top["total_hours"]) if top is not None else 0.0,
-                     "top1_share": float(top["total_hours"] / total) if total else np.nan,
-                     "top2_share": float(places["total_hours"].iloc[:2].sum() / total) if total else np.nan})
-        print(f"{u}: {len(s)} stay -> {len(places)} địa điểm ({time.time() - t0:.0f} giây)")
-    stats = _from_project(args.stats)
-    stats.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).to_csv(stats, index=False)
-    print("Đã ghi:", out_dir, "và", stats)
+    common.cli(VERSION, "Bước 6 (v1): gom stay point thành địa điểm quanh điểm neo.", places_for_user,
+               {"--radius-m": (float, RADIUS_M, "bán kính địa điểm (mét)")})
 
 
 if __name__ == "__main__":

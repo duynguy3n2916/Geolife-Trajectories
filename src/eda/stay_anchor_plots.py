@@ -1,4 +1,4 @@
-"""Biểu đồ cho notebook 07–10 (mục 18–29). Mỗi hàm nhận bảng đã tính trong notebook và trả về Figure."""
+"""Biểu đồ cho notebook 10–13 (mục 1–3 (notebook 10, 13)). Mỗi hàm nhận bảng đã tính trong notebook và trả về Figure."""
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
@@ -38,7 +38,7 @@ def _hbars(ax, labels, values, colors, fmt="{:.1f}", title=""):
 
 
 def far_gap_summary(moving_off, moving_on, still_both):
-    """Mục 22: ở gap-stay có hai đầu xa nhau, người dùng đang làm gì lúc tắt và lúc bật máy."""
+    """Mục 1 (notebook 11): ở gap-stay có hai đầu xa nhau, người dùng đang làm gì lúc tắt và lúc bật máy."""
     fig, ax = _fig(7.5, 3.0)
     _hbars(ax[0], ["đang đi lúc bật máy", "đang đi lúc tắt máy", "đứng yên cả hai lúc"],
            [moving_on, moving_off, still_both], [BLUE, BLUE, GRAY], "{:.0f}%",
@@ -50,7 +50,7 @@ def far_gap_summary(moving_off, moving_on, still_both):
 
 
 def gap_label_plot(tab: pd.DataFrame):
-    """Mục 23.1c: theo độ dài khoảng trống (hai đầu gần nhau), bao nhiêu % có nhãn nói đang di chuyển ở một đầu."""
+    """Mục 2.1c (notebook 11): theo độ dài khoảng trống (hai đầu gần nhau), bao nhiêu % có nhãn nói đang di chuyển ở một đầu."""
     fig, ax = _fig(8.5, 3.6)
     a = ax[0]
     x = np.arange(len(tab))
@@ -70,7 +70,7 @@ def gap_label_plot(tab: pd.DataFrame):
 
 
 def routine_plot(tab: pd.DataFrame, ratio_min: float = 0.8):
-    """Mục 23.5: theo độ dài khoảng trống, % khoảng trống trùng nơi thường lệ so với % ngày GPS trùng."""
+    """Mục 2.5 (notebook 11): theo độ dài khoảng trống, % khoảng trống trùng nơi thường lệ so với % ngày GPS trùng."""
     fig, ax = _fig(12, 3.8, 2)
     x = np.arange(len(tab))
     lab = [f"{iv.left:g}–{iv.right:g}" for iv in tab.index]
@@ -101,7 +101,7 @@ def routine_plot(tab: pd.DataFrame, ratio_min: float = 0.8):
 
 
 def holdout_plot(summ: dict, base: int = 24):
-    """Mục 23.4: điểm dự đoán sang giai đoạn khác theo max gap, home và office."""
+    """Mục 2.4 (notebook 11): điểm dự đoán sang giai đoạn khác theo max gap, home và office."""
     fig, ax = _fig(11.5, 3.6, 2)
     for a, (kind, title) in zip(ax, [("home", "HOME (khung đêm 0–6h)"), ("office", "OFFICE (thứ 2–6, 9–17h)")]):
         t = summ[kind]
@@ -120,7 +120,7 @@ def holdout_plot(summ: dict, base: int = 24):
 
 
 def maxgap_plot(tab: pd.DataFrame):
-    """Mục 23.2: theo max gap, bao nhiêu giờ và bằng chứng còn lại, bao nhiêu user đổi nơi, stay tách."""
+    """Mục 2.2 (notebook 11): theo max gap, bao nhiêu giờ và bằng chứng còn lại, bao nhiêu user đổi nơi, stay tách."""
     fig, ax = _fig(13, 3.8, 3)
     x = tab.index.to_numpy()
     series = [("giờ stay còn lại (%)", "giờ stay (tất cả user)", GRAY),
@@ -151,7 +151,7 @@ def maxgap_plot(tab: pd.DataFrame):
 
 
 def gap_length_summary(a: pd.DataFrame, g: pd.DataFrame, g2: pd.DataFrame):
-    """Mục 23: (trái) tỉ lệ hai đầu gần theo độ dài khoảng trống thật; (phải) precision khi xoá khoảng trống nhân tạo."""
+    """Mục 2 (notebook 11): (trái) tỉ lệ hai đầu gần theo độ dài khoảng trống thật; (phải) precision khi xoá khoảng trống nhân tạo."""
     fig, ax = _fig(12, 3.8, 2)
     x = np.arange(len(a))
     lab = [f"{iv.left:g}–{iv.right:g}" for iv in a.index]
@@ -200,7 +200,7 @@ def gap_length_summary(a: pd.DataFrame, g: pd.DataFrame, g2: pd.DataFrame):
 
 
 # =============================================================================
-# MỤC 18–21 (notebook 07): li so với h1_mean
+# MỤC 18–21 (notebook 10): li so với h1_mean
 # =============================================================================
 GOOD, CRIT = "#006300", "#d03b3b"
 
@@ -406,7 +406,7 @@ def user_change_hist(chg: pd.Series, title: str, xlabel: str):
 
 
 def scorecard(m: dict):
-    """Ba tiêu chí chốt h1_mean, mỗi tiêu chí một câu hỏi, li so với h1_mean và ngưỡng. m: số tính ở mục 21."""
+    """Ba tiêu chí chốt h1_mean, mỗi tiêu chí một câu hỏi, li so với h1_mean và ngưỡng. m: số tính ở mục 4 (notebook 10)."""
     fig, axs = plt.subplots(1, 3, figsize=(13.5, 4.6), facecolor=SURFACE)
     items = [
         ("① Một lần ở có còn bị cắt đôi không?", "stay bị tách / 100 stay",
@@ -442,10 +442,10 @@ def scorecard(m: dict):
 
 
 # =============================================================================
-# MỤC 27–29 (notebook 10): bằng chứng gộp gap vào home/office
+# MỤC 27–29 (notebook 13): bằng chứng gộp gap vào home/office
 # =============================================================================
 def gap_coverage(H: pd.DataFrame, U: pd.DataFrame):
-    """Mục 27: gap chiếm bao nhiêu trong từng giờ của ngày, và với từng user."""
+    """Mục 1 (notebook 13): gap chiếm bao nhiêu trong từng giờ của ngày, và với từng user."""
     fig, ax = _fig(13, 4, 3)
     hh = H.groupby("hour")[["gps_h", "gap_h"]].sum()
     share = 100 * hh["gap_h"] / (hh["gps_h"] + hh["gap_h"])
@@ -467,14 +467,14 @@ def gap_coverage(H: pd.DataFrame, U: pd.DataFrame):
         b.set_title(f"Theo từng user: giờ {lab}", loc="left", fontsize=10.5, color=INK)
     for x_ in ax:
         _style(x_); x_.grid(axis="y", color=GRID, lw=0.6); x_.grid(axis="x", visible=False)
-    fig.suptitle("Mục 27: gap chiếm bao nhiêu giờ đêm và giờ hành chính",
+    fig.suptitle("Mục 1 (notebook 13): gap chiếm bao nhiêu giờ đêm và giờ hành chính",
                  x=0.01, ha="left", fontsize=12, color=INK)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     return fig
 
 
 def gap_agreement(over_len: pd.DataFrame, over_ends: pd.DataFrame, day_len: pd.DataFrame, day_len_home: pd.DataFrame):
-    """Mục 28: gap có thật sự ở home / office (đáp án từ GPS) không."""
+    """Mục 2 (notebook 13): gap có thật sự ở home / office (đáp án từ GPS) không."""
     fig, ax = _fig(13, 4.2, 3)
 
     def draw(a, t, title, color, xlabel, extra=None, extra_label=""):
@@ -495,7 +495,7 @@ def gap_agreement(over_len: pd.DataFrame, over_ends: pd.DataFrame, day_len: pd.D
     draw(ax[0], over_len, "Gap qua đêm, hai đầu gần nhau: có ở HOME không?", BLUE, "độ dài gap (giờ)")
     draw(ax[1], over_ends, "Gap qua đêm, theo hai đầu cách nhau: có ở HOME không?", BLUE, "hai đầu cách nhau (m)")
     draw(ax[2], day_len, "Gap ban ngày, hai đầu gần nhau: có ở OFFICE không?", ORANGE, "độ dài gap (giờ)", day_len_home, "ở HOME (không phải office)")
-    fig.suptitle("Mục 28: gap nằm ở đâu so với home/office suy ra từ GPS (đường chấm: mốc 90%)", x=0.01, ha="left", fontsize=12, color=INK)
+    fig.suptitle("Mục 2 (notebook 13): gap nằm ở đâu so với home/office suy ra từ GPS (đường chấm: mốc 90%)", x=0.01, ha="left", fontsize=12, color=INK)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     return fig
 

@@ -1,4 +1,4 @@
-"""Mục 30 (notebook 10): confidence có dự đoán được kết quả ở giai đoạn sau không.
+"""Mục 4 (notebook 13): confidence có dự đoán được kết quả ở giai đoạn sau không.
 
 Với mỗi user: chia stay thành hai nửa theo giờ đến (trung vị thời gian). Chạy bỏ phiếu home / office (D18) **chỉ trên nửa đầu**
 để có kết quả và confidence; chạy riêng trên nửa sau. Hỏi: user confidence cao ở nửa đầu có giữ nguyên nơi ở nửa sau nhiều

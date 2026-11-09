@@ -1,4 +1,4 @@
-"""Thời gian có mặt ở từng địa điểm theo giờ địa phương, cho notebook 09 (khung giờ home/office, A10).
+"""Thời gian có mặt ở từng địa điểm theo giờ địa phương, cho notebook 12 (khung giờ home/office, A10).
 
 Đầu vào: stay kèm place_id (data/processed/places_v1/<user>_stays) và điểm đã lọc (data/processed/clean).
 
@@ -25,7 +25,8 @@ SRC = Path(__file__).resolve().parents[1]
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 from preprocess import interim                                          # noqa: E402
-from preprocess.clean_trajectory import EPOCH, GAP_S, PROJECT_ROOT, load_clean   # noqa: E402
+from paths import PROJECT_ROOT                                          # noqa: E402
+from preprocess.clean_trajectory import EPOCH, GAP_S, load_clean       # noqa: E402
 from places.cluster_v1 import PLACES_DIR                                # noqa: E402
 
 CACHE_DIR = PROJECT_ROOT / "data" / "interim" / "eda_presence"
@@ -33,7 +34,7 @@ TOP_K = 5                  # chỉ xét 5 địa điểm nhiều giờ nhất m�
 BASE_WINDOWS = {"night": (20, 7), "work": (9, 18)}   # khung đang thử ở slide CP1 (mốc so sánh, chưa chốt)
 NIGHT_GRID = [(s, e) for s in (19, 20, 21, 22, 23) for e in (5, 6, 7, 8)]
 WORK_GRID = [(s, e) for s in (8, 9, 10) for e in (17, 18, 19)]
-PROBE_HOUR = 3             # mốc giờ để đếm "đêm có mặt": stay chứa 3h sáng (giờ ít dữ liệu nhất, EDA mục 12)
+PROBE_HOUR = 3             # mốc giờ để đếm "đêm có mặt": stay chứa 3h sáng (giờ ít dữ liệu nhất, EDA mục 1 (notebook 04))
 DAY_S = 86400
 HOUR_S = 3600
 

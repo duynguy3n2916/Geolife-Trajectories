@@ -1,4 +1,4 @@
-"""Chọn khung giờ làm việc từ dữ liệu, cho notebook 09 (mục 26.1–26.4, A10).
+"""Chọn khung giờ làm việc từ dữ liệu, cho notebook 12 (mục 4.1–4.4, A10).
 
 Ý tưởng: không lấy giờ hành chính làm đầu vào. Với mỗi user chọn một cặp (nơi ở, nơi làm việc ứng viên)
 bằng tiêu chí rộng, không phụ thuộc khung cần tìm, rồi xem ở từng giờ ngày thường user có mặt ở nơi nào.

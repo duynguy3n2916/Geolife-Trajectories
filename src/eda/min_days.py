@@ -1,4 +1,4 @@
-"""Số đêm / ngày làm việc tối thiểu để bỏ phiếu home / office (A11; notebook 10, mục 29).
+"""Số đêm / ngày làm việc tối thiểu để bỏ phiếu home / office (A11; notebook 13, mục 3).
 
 Cách đo (hai mẫu rời nhau, không có chuẩn trùng với mẫu): với mỗi user và mỗi k, bốc ngẫu nhiên 2k phiếu, chia hai nhóm
 rời nhau mỗi nhóm k phiếu, bỏ phiếu riêng từng nhóm, rồi hỏi hai nhóm có cho cùng nơi thắng không. Lặp N_REP lần, lấy

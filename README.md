@@ -27,19 +27,30 @@ Home_Office/
 │       ├── clean/           quỹ đạo đã lọc, mỗi user một parquet (timestamp UTC, local_time, tz_offset_h)
 │       ├── stays/           stay point, mỗi user một parquet
 │       └── places_v1/       địa điểm (v1) và stay kèm place_id, mỗi user hai parquet
-├── notebooks/
-│   └── eda/                 EDA, đánh số mục 1–29 theo thứ tự pipeline (01–05 mô tả dữ liệu thô trước bước lọc, không gắn ngưỡng hay khung giờ)
-│       ├── 01_data_quality.ipynb        mục 1–3: chất lượng, quy mô dữ liệu theo user
-│       ├── 02_speed_and_gaps.ipynb      mục 4–7: khoảng lấy mẫu, tốc độ, khoảng trống, nhãn phương tiện
-│       ├── 03_outlier_thresholds.ipynb  mục 8: chuỗi đi ra rồi quay về, chọn ngưỡng outlier (N hay T)
-│       ├── 04_space_and_time.ipynb      mục 9, 10, 11: phân bố không gian, kiểm chứng múi giờ, theo tháng/năm
-│       ├── 05_coverage.ipynb            mục 12, 13: độ phủ theo giờ, khoảng trống theo giờ
-│       ├── 06_staypoint_thresholds.ipynb mục 14–17: kiểm chứng D, T của stay point bằng nhãn phương tiện
-│       ├── 07_stay_anchor.ipynb          mục 18–21: cách đặt điểm neo của stay point, `li` so với `h1_mean`
-│       ├── 08_gap_stay.ipynb             mục 22–23: gap-stay, hai đầu xa nhau là gì, chọn max gap
-│       ├── 09_home_office_windows.ipynb  mục 24–26: thời gian có mặt theo giờ, giờ đến/đi, độ nhạy khung home/office; 26.1–26.5 đọc khung giờ làm việc từ dữ liệu (A10)
-│       ├── 10_gap_home_office.ipynb      mục 27–29: gap trong giờ đêm / giờ hành chính, gap có ở home/office không, số đêm / ngày tối thiểu để bỏ phiếu
+├── notebooks/               đánh số 01–14 theo thứ tự làm; mục đánh số riêng trong từng notebook
+│   ├── survey/              KHẢO SÁT, trước khi chia: toàn bộ 182 user, chỉ mô tả, không chọn ngưỡng
+│   │   ├── 01_data_quality.ipynb         mục 1–3 (3.1–3.4): chất lượng, quy mô theo user, dòng trùng, file trùng giữa các user
+│   │   ├── 02_sampling_and_labels.ipynb  mục 1, 2: khoảng lấy mẫu, nhãn phương tiện
+│   │   ├── 03_space_and_time.ipynb       mục 1, 2, 3: phân bố không gian, kiểm chứng múi giờ, theo tháng/năm
+│   │   └── 04_coverage_by_hour.ipynb     mục 1: độ phủ theo thứ và giờ
+│   ├── tuning/              TUNING, sau khi chia: chỉ nhóm validation, chọn ngưỡng
+│   │   ├── 05_duplicate_rules.ipynb      mục 1 (1.1–1.3): quy tắc xử lý dòng trùng timestamp (R3, R4, 83 m)
+│   │   ├── 06_speed_and_gaps.ipynb       mục 1, 2: tốc độ giữa hai điểm, khoảng trống thời gian
+│   │   ├── 07_outlier_thresholds.ipynb   các bước 1–7: chuỗi đi ra rồi quay về, chọn ngưỡng outlier (N hay T)
+│   │   ├── 08_gap_ends.ipynb             mục 1: khoảng trống xảy ra lúc nào, hai đầu có gần nhau không
+│   │   ├── 09_staypoint_thresholds.ipynb mục 1–4: kiểm chứng D, T của stay point bằng nhãn phương tiện
+│   │   ├── 10_stay_anchor.ipynb          mục 1–4: cách đặt điểm neo của stay point, `li` so với `h1_mean`
+│   │   ├── 11_gap_stay.ipynb             mục 1–2: gap-stay, hai đầu xa nhau là gì, chọn max gap
+│   │   ├── 12_home_office_windows.ipynb  mục 1–4: thời gian có mặt theo giờ, giờ đến/đi, độ nhạy khung home/office; 4.1–4.5 đọc khung giờ làm việc từ dữ liệu
+│   │   ├── 13_gap_home_office.ipynb      mục 1–5: gap trong giờ đêm / giờ hành chính, số đêm / ngày tối thiểu, confidence, xem CSV
+│   │   └── 14_place_eps.ipynb            mục 1–4: chọn `eps` của cluster_v2 (D20, A16), quét `min_samples`, so với v1
+│   └── test/                TEST, chạy một lần (D19)
+│       └── 15_test.ipynb
 ├── src/
+│   ├── paths.py                  PROJECT_ROOT, đường dẫn gốc dùng chung
+│   ├── geo.py                    haversine_m
+│   ├── models.py                 các version model (heuristic-v1, dbscan-v2), mầm của registry
+│   ├── infer.py                  infer(points, model_version): chuỗi GPS trong bộ nhớ -> home/office (lõi của POST /v1/infer)
 │   ├── preprocess/
 │   │   ├── check_raw_format.py   kiểm tra định dạng file .plt
 │   │   ├── convert_raw.py        chuyển .plt sang data/interim (một lần)
@@ -49,21 +60,25 @@ Home_Office/
 │   ├── stays/
 │   │   └── detect.py             bước 5: stay point (Li et al., 2008, neo h1_mean D13), kể cả gap-stay
 │   ├── places/
-│   │   ├── cluster_v1.py         bước 6 (v1): gom stay thành địa điểm quanh điểm neo, bán kính 200 m
+│   │   ├── common.py             phần dùng chung của hai cách gom (bảng địa điểm, dòng lệnh, places_dir(version))
+│   │   ├── cluster_v1.py         bước 6 (v1): gom stay thành địa điểm quanh điểm neo
+│   │   ├── cluster_v2.py         bước 6 (v2): DBSCAN, eps 200 m, min_samples 1 (D20)
 │   │   └── home_office_conf.py   bước 7: home/office bằng bỏ phiếu theo ngày + confidence (D18)
 │   └── eda/
-│       ├── stay_scan.py          chạy stay point trong các đoạn có nhãn cho notebook 06, lưu tạm ở data/interim/eda_stays_labels
-│       ├── stay_anchor.py        li và h1_mean, đo tách stay, nhận nhầm, địa điểm đứng đầu, gap-stay (notebook 07, 08), lưu tạm ở data/interim/eda_stay_anchor_mean
-│       ├── stay_anchor_plots.py  biểu đồ cho notebook 07, 08, 10
-│       ├── split.py              chia user dev/test (D17), chạy đầu tiên trước mọi EDA; notebook 01–10 chỉ đọc nhóm dev; kết quả data/split/users.csv
-│       ├── work_window.py        đọc khung giờ làm việc từ tỷ lệ office/(office+home) theo giờ, notebook 09 mục 26.1–26.5
-│       ├── presence.py           tách stay thành phần GPS / khoảng trống theo giờ cho notebook 09, lưu tạm ở data/interim/eda_presence
-│       ├── gap_evidence.py       giờ GPS / gap của home, office, gap có ở home/office không (notebook 10)
-│       ├── min_days.py           số đêm / ngày làm việc tối thiểu để bỏ phiếu ổn định (notebook 10, mục 29)
-│       ├── duplicates.py         dòng trùng timestamp, file trùng giữa các user (notebook 01)
+│       ├── place_eps.py          quét eps / min_samples của cluster_v2 và so với v1 (notebook 14), cache ở data/interim/eda_place_eps
+│       ├── stay_scan.py          chạy stay point trong các đoạn có nhãn cho notebook 09, lưu tạm ở data/interim/eda_stays_labels
+│       ├── stay_anchor.py        li và h1_mean, đo tách stay, nhận nhầm, địa điểm đứng đầu, gap-stay (notebook 10, 11), lưu tạm ở data/interim/eda_stay_anchor_mean
+│       ├── stay_anchor_plots.py  biểu đồ cho notebook 10, 11, 13
+│       ├── split.py              chia user validation/test (D17), chạy sau khảo sát và trước tuning; notebook tuning chỉ đọc nhóm validation; kết quả data/split/users.csv
+│       ├── work_window.py        đọc khung giờ làm việc từ tỷ lệ office/(office+home) theo giờ, notebook 12 mục 4.1–4.5
+│       ├── presence.py           tách stay thành phần GPS / khoảng trống theo giờ cho notebook 12, lưu tạm ở data/interim/eda_presence
+│       ├── gap_evidence.py       giờ GPS / gap của home, office, gap có ở home/office không (notebook 13)
+│       ├── min_days.py           số đêm / ngày làm việc tối thiểu để bỏ phiếu ổn định (notebook 13, mục 3)
+│       ├── duplicates.py         dòng trùng timestamp, file trùng giữa các user (notebook 01 và 05)
 │       ├── config.py             dữ kiện tài liệu, giả thuyết, mốc mô tả dùng chung cho các notebook EDA
 │       ├── scan.py               quét data/interim, tính số liệu theo chủ đề cho từng notebook
 │       └── utils.py              hàm nhỏ (phân vị từ histogram, định dạng nhãn)
+├── tests/                   pytest: gom cụm, bỏ phiếu, infer (python -m pytest tests)
 └── reports/
     └── filter_stats.csv     số liệu lọc theo user
 ```
@@ -90,13 +105,17 @@ python src/preprocess/check_raw_format.py
 #    Chỉ đổi định dạng, không lọc. Chạy lại khi đổi cách đọc file .plt (read_plt).
 python src/preprocess/convert_raw.py
 
-# 2b. Chia user thành nhóm dev / test (D17) TRƯỚC KHI chạy bất kỳ EDA nào.
-#    Chạy một lần; không ghi đè nếu đã có data/split/users.csv.
+# 3. KHẢO SÁT (trước khi chia): notebooks/survey/ gồm 01–04. Run All, chạy trên TOÀN BỘ 182 user.
+#    Chỉ mô tả dữ liệu, không chọn ngưỡng. Mỗi notebook khoảng 1–2 phút (01 lần đầu khoảng 10 phút).
+
+# 3b. Chia user thành nhóm validation / test (D17) sau khi khảo sát và TRƯỚC KHI chọn ngưỡng.
+#    Chỉ đọc tên file và md5 file .plt; user có file giống hệt nhau vào cùng một nhóm (cụm).
+#    Chạy một lần; không ghi đè nếu đã có data/split/users.csv (lần đầu quét md5 khoảng 1–2 phút).
 python src/eda/split.py
 
-# 3. EDA: mở từng notebook trong notebooks/eda/ và Run All (mỗi notebook khoảng 1–2 phút)
-#    Chỉ đọc nhóm dev.
-#    Kết quả dùng để chọn ngưỡng lọc (xem notes/assumptions.md).
+# 3c. TUNING (sau khi chia): notebooks/tuning/ gồm 05–14, chỉ nhóm validation.
+#    Kết quả dùng để chọn ngưỡng (xem notes/assumptions.md). Notebook 05–08 chạy trước bước 4–6 bên dưới; notebook 09–14 chạy sau đó
+#    (làm sạch, stay, gom địa điểm), notebook 13 sau bước 7, notebook 14 sau bước 6; test (notebook 15) cuối cùng.
 
 # 4. Lọc với các ngưỡng đã chọn (đọc từ data/interim)
 python src/preprocess/clean_trajectory.py --save-clean data/processed/clean
@@ -112,6 +131,13 @@ python src/places/cluster_v1.py
 #    -> data/processed/places_v1/<user>_places.parquet, <user>_stays.parquet (kèm place_id)
 #       và reports/place_stats_v1.csv
 
+# 6b. Phiên bản v2 (DBSCAN, eps 200 m); chạy bước 7 cho v2 bằng --version v2
+python src/places/cluster_v2.py
+python src/places/home_office_conf.py --version v2      # mặc định v1; ghi reports/home_office_<version>_val.csv
+
+# Test (cần: pip install -r requirements-dev.txt)
+python -m pytest tests
+
 
 ```
 
@@ -121,25 +147,13 @@ python src/places/cluster_v1.py
 |---|---|---|---|
 | 1 | Đọc, kiểm tra định dạng | xong | `src/preprocess/check_raw_format.py` |
 | 2 | Chuyển dữ liệu thô sang data/interim | xong | `src/preprocess/convert_raw.py` |
-| 2b | Chia user dev / test (D17) | xong | `src/eda/split.py` |
-| 3 | EDA trên dữ liệu thô (nhóm dev), chọn ngưỡng | xong (chạy lại trên dev) | `notebooks/eda/01`–`05` |
-| 4 | Lọc tọa độ, thời gian, trùng, chuỗi outlier (k ≤ 5); thêm giờ địa phương (không cắt segment, D10) | xong | `src/preprocess/clean_trajectory.py` |
-| 5 | Stay point (Li et al., 2008, neo h1_mean; D = 200 m, T = 30 phút; gap-stay ≤ 24 giờ) | xong (chạy lại sau D13, đổi sang h1_mean 2026-11-06) | `src/stays/detect.py` |
-| 6 | Gom cụm địa điểm: v1 tham lam quanh điểm neo (200 m); v2 DBSCAN (CP2) | v1 xong | `src/places/cluster_v1.py` |
-| 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | xong (v1); test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/eda/11_test.ipynb` |
+| 3 | Khảo sát toàn bộ dữ liệu (chỉ mô tả, chưa chọn ngưỡng) | cần chạy lại | `notebooks/survey/` |
+| 3b | Chia validation / test, gom user trùng file (D17) | xong 2026-11-07 | `src/eda/split.py` |
+| 3c | Chọn ngưỡng, chỉ nhóm validation | cần chạy lại trên bản chia mới | `notebooks/tuning/` |
+| 4 | Lọc tọa độ, thời gian, trùng, chuỗi outlier (A3, A5, A6 đã chốt); thêm giờ địa phương (không cắt segment, D10) | cần chạy lại sau tuning | `src/preprocess/clean_trajectory.py` |
+| 5 | Stay point (Li et al., 2008; D = 200 m, T = 30 phút, max gap 24 giờ, neo h1_mean đã chốt) | cần chạy lại sau tuning | `src/stays/detect.py` |
+| 6 | Gom cụm địa điểm: v1 tham lam quanh điểm neo (bán kính 200 m); v2 DBSCAN `eps` 200 m (D20) | v1 cần chạy lại; v2 chạy 2026-11-09 trên validation (`eps` 200 m) | `src/places/cluster_v1.py`, `src/places/cluster_v2.py` |
+| 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | cần chạy lại; test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/test/15_test.ipynb` |
 | – | OpenAPI spec (làm song song, review với mentor trước khi code API) | bản nháp, chờ review | `api/openapi.yaml` |
 
-Ngưỡng và giả định: xem `notes/assumptions.md`. Các tham chiếu "EDA mục N" trong đó ứng với notebook:
-
-| Mục | Notebook |
-|---|---|
-| 1, 2, 3 | `01_data_quality` |
-| 4, 5, 6, 7 | `02_speed_and_gaps` |
-| 8 | `03_outlier_thresholds` |
-| 9, 10, 11 | `04_space_and_time` |
-| 12, 13 | `05_coverage` |
-| 14, 15, 16, 17 | `06_staypoint_thresholds` |
-| 18, 19, 20, 21 | `07_stay_anchor` |
-| 22, 23 | `08_gap_stay` |
-| 24, 25, 26 (26.1–26.5) | `09_home_office_windows` |
-| 27, 28, 29 | `10_gap_home_office` |
+Ngưỡng và giả định: xem `notes/assumptions.md` (tất cả đã chốt 2026-11-07; A11 và A15 là quy ước, A11 kiểm lại ở `notebooks/tuning/13`). Mục ("mục N") đánh số riêng trong từng notebook; tham chiếu từ file khác ghi kèm tên notebook, ví dụ "mục 2.1 (notebook 11)". Mục của từng notebook: xem cây thư mục ở đầu file.

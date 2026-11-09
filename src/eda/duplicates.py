@@ -1,4 +1,4 @@
-"""Đào sâu timestamp trùng cho notebook 01 (mục 3.1–3.14; quét mọi user ở mục 3.1–3.4 là scan_all_users).
+"""Đào sâu timestamp trùng cho notebook 01 (mục 3.1–3.14; quét mọi user ở mục 3.1–1.1 (notebook 01, 05) là scan_all_users).
 
 Vì sao phải đọc lại file .plt gốc: data/interim và read_plt chỉ giữ lat, lon, timestamp. Độ cao và cột ngày kiểu
 Excel bị bỏ, nên không biết hai dòng trùng timestamp có "giống hệt mọi trường" hay không. Ở đây mỗi dòng được

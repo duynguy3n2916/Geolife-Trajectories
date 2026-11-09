@@ -1,6 +1,6 @@
-"""Bằng chứng để gộp khoảng trống (gap) vào home/office (notebook 10, mục 27–28).
+"""Bằng chứng để gộp khoảng trống (gap) vào home/office (notebook 13, mục 1–2).
 
-Stay dùng h1_mean (kết quả của notebook 07). Với mỗi user:
+Stay dùng h1_mean (kết quả của notebook 10). Với mỗi user:
   - giờ GPS và giờ gap của mỗi stay trong khung đêm (0–6h) và khung hành chính (thứ 2–6, 9–17h), giờ địa phương;
   - home_gps / office_gps: địa điểm nhiều giờ GPS nhất trong từng khung (làm đáp án tham chiếu);
   - mỗi khoảng trống trong stay: độ dài, hai đầu cách nhau, qua đêm không, hai đầu cách home_gps / office_gps bao xa.

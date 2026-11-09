@@ -1,35 +1,66 @@
 openapi: 3.0.3
 info:
   title: Home/Office Inference API
-  version: 0.1.0-cp1-draft
+  version: 0.2.0-cp2-draft
   description: |
-    
-    API trả về home và office suy ra từ dữ liệu GPS GeoLife 1.3 cho từng user, kèm độ tin cậy.
+    Suy ra **home** và **office** từ dữ liệu GPS, kèm độ tin cậy. Có hai cách dùng:
 
-    **Về `confidence`.** Đây là độ chắc của quy tắc bỏ phiếu (D18), tính bằng %: bốc lại ngẫu nhiên (có hoàn lại) các
-    đêm / ngày làm việc có phiếu của user 200 lần, bỏ phiếu lại, và đếm % lần vẫn ra cùng nơi. Dưới 7 phiếu thì
-    `confidence` là `null` và có cờ `few_nights` / `few_workdays` (với ít phiếu cùng một nơi, bốc lại luôn ra 100%).
-    Nó **không phải xác suất kết quả đúng**: dữ liệu không có đáp án home/office (A13), nên chưa được hiệu chuẩn.
+    1. **Gửi dữ liệu GPS lên** (`POST /v1/infer`): chạy pipeline ngay trong request và trả kết quả luôn.
+       Nhận JSON (danh sách điểm) hoặc file (CSV, `.csv.gz`, `.zip` các file `.plt`), tối đa 1 triệu điểm / 50 MB.
+    2. **Xem kết quả đã tính sẵn cho 182 user GeoLife 1.3** (nhóm `geolife`), dùng để demo và đối chiếu.
 
-    **Về dữ liệu.** Khoảng 90% giờ stay đến từ khoảng trống khi máy tắt (A12), vì vậy mỗi địa điểm kèm `gps_share`
-    (phần giờ có GPS thật) để người dùng API tự đánh giá.
+    Cả hai chạy cùng một pipeline: làm sạch (A3–A7), stay point (Li et al. 2008, neo h1_mean, D = 200 m,
+    T = 30 phút, gap-stay ≤ 24 giờ; A12, A14), gom địa điểm, bỏ phiếu theo khung giờ địa phương
+    (đêm 20–7h, làm việc 9–18h T2–T6; A10). Giờ địa phương suy từ tọa độ (A9), nên người gọi chỉ gửi giờ UTC
+    hoặc giờ có offset.
 
+    **Cần bao nhiêu dữ liệu.** Mỗi đêm / ngày làm việc có ít nhất 60 phút trong khung mới có một phiếu; dưới 7 phiếu
+    vẫn trả nơi thắng nhưng `confidence` là `null`, kèm cờ `few_nights` / `few_workdays` (A11). Nên gửi ít nhất
+    2–3 tuần dữ liệu.
+
+    **Về `confidence`.** Độ chắc của quy tắc bỏ phiếu (D18), tính bằng %: bốc lại có hoàn lại các phiếu 200 lần,
+    bỏ phiếu lại, đếm % lần vẫn ra cùng nơi. **Không phải xác suất kết quả đúng**: không có đáp án home/office
+    để hiệu chuẩn (A13).
+
+    **Về dữ liệu.** Phần lớn giờ stay đến từ khoảng trống khi máy tắt (A12), nên mỗi địa điểm kèm `gps_share`
+    (phần giờ có GPS thật).
+
+    **Version model.** Mỗi lần gọi có thể chọn `model_version` (ví dụ `heuristic-v1` gom cụm tham lam 200 m,
+    `dbscan-v2` gom cụm DBSCAN). Bỏ trống thì dùng bản mặc định (`GET /v1/models`). Response ghi
+    `model_version` đã dùng, header `X-Model-Version` cũng vậy.
+
+    **Quyền riêng tư.** GPS và vị trí nhà là dữ liệu nhạy cảm. Dữ liệu tải lên chỉ nằm trong bộ nhớ trong lúc xử lý
+    request, không lưu xuống đĩa và không ghi tọa độ vào log; trả xong là bỏ. Mọi endpoint trừ `/health` cần API key,
+    chỉ phục vụ qua HTTPS. Tọa độ trả về làm tròn 4 chữ số thập phân (khoảng 11 m).
+
+    **Lỗi.** Mọi lỗi trả `Error` với `code` cố định để client xử lý (ví dụ `payload_too_large`, `too_few_points`).
+
+    Thay đổi so với 0.1.0-cp1-draft: thêm tiền tố `/v1`, `POST /v1/infer`, `GET /v1/models`, tham số `model_version`,
+    API key; các endpoint GeoLife giữ nguyên nội dung, chỉ đổi đường dẫn.
 servers:
   - url: http://localhost:8000
     description: Chạy cục bộ
+  - url: https://{host}
+    description: AWS (điền khi deploy ở CP2)
+    variables:
+      host:
+        default: api.example.com
 tags:
-  - name: locations
-    description: Home và office của user
-  - name: places
-    description: Các địa điểm của user
+  - name: inference
+    description: Tải dữ liệu GPS lên và suy ra home / office
+  - name: geolife
+    description: Kết quả tính sẵn cho các user GeoLife 1.3
   - name: meta
-    description: Trạng thái dịch vụ
+    description: Trạng thái dịch vụ và các version model
+security:
+  - ApiKey: []
 paths:
   /health:
     get:
       tags: [meta]
       summary: Kiểm tra dịch vụ còn chạy
       operationId: getHealth
+      security: []
       responses:
         '200':
           description: Dịch vụ hoạt động
@@ -37,20 +68,87 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, model_version]
+                required: [status, default_model_version]
                 properties:
                   status:
                     type: string
                     enum: [ok]
-                  model_version:
+                  default_model_version:
                     type: string
-                    example: home_office_v1
-  /users:
+                    example: heuristic-v1
+  /v1/models:
     get:
-      tags: [locations]
-      summary: Danh sách user và trạng thái xác định home/office
-      operationId: listUsers
+      tags: [meta]
+      summary: Các version model đang phục vụ
+      operationId: listModels
+      responses:
+        '200':
+          description: Danh sách version, đánh dấu bản mặc định
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [default, items]
+                properties:
+                  default:
+                    type: string
+                    example: heuristic-v1
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModelInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/infer:
+    post:
+      tags: [inference]
+      summary: Tải dữ liệu GPS lên và nhận home / office ngay
+      description: |
+        Chạy pipeline trong request và trả kết quả luôn, không lưu dữ liệu. Tối đa 1 triệu điểm hoặc 50 MB
+        (vượt thì 413). Nhận JSON (danh sách điểm) hoặc file qua multipart (xem `UploadFile`).
+      operationId: infer
       parameters:
+        - $ref: '#/components/parameters/ModelVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PointsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadFile'
+      responses:
+        '200':
+          description: Kết quả suy ra
+          headers:
+            X-Model-Version:
+              $ref: '#/components/headers/XModelVersion'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceResult'
+        '400':
+          $ref: '#/components/responses/BadInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/geolife/users:
+    get:
+      tags: [geolife]
+      summary: Danh sách user GeoLife và trạng thái xác định home/office
+      operationId: listGeolifeUsers
+      parameters:
+        - $ref: '#/components/parameters/ModelVersion'
         - name: limit
           in: query
           schema: {type: integer, minimum: 1, maximum: 200, default: 50}
@@ -72,34 +170,42 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [total, items]
+                required: [model_version, total, items]
                 properties:
+                  model_version: {type: string}
                   total: {type: integer}
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/UserSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationError'
-  /users/{user_id}/locations:
+  /v1/geolife/users/{user_id}/locations:
     get:
-      tags: [locations]
-      summary: Home và office của một user
+      tags: [geolife]
+      summary: Home và office của một user GeoLife
       description: |
-        Trả về cả hai, mỗi mục có thể là `null` khi chưa xác định được; lý do nằm ở `flags`.
-        Trường hợp office trùng home: `office` là `null` và `flags` chứa `home_eq_office`.
-      operationId: getUserLocations
+        Mỗi mục có thể là `null` khi chưa xác định được; lý do nằm ở `flags`.
+        Office trùng home: `office` là `null` và `flags` chứa `home_eq_office`.
+      operationId: getGeolifeUserLocations
       parameters:
         - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/ModelVersion'
       responses:
         '200':
           description: Home và office kèm độ tin cậy
+          headers:
+            X-Model-Version:
+              $ref: '#/components/headers/XModelVersion'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserLocations'
               example:
                 user_id: '002'
+                model_version: heuristic-v1
                 home:
                   place_id: 0
                   lat: 39.9263
@@ -115,16 +221,19 @@ paths:
                   n_votes: 44
                   components: {share: 0.75, margin: 0.55, stable: 1.0, gps_share: 0.04}
                 flags: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          $ref: '#/components/responses/NotFound'
-  /users/{user_id}/places:
+          $ref: '#/components/responses/UserNotFound'
+  /v1/geolife/users/{user_id}/places:
     get:
-      tags: [places]
-      summary: Các địa điểm của user, sắp theo tổng thời gian ở lại
+      tags: [geolife]
+      summary: Các địa điểm của user GeoLife, sắp theo tổng thời gian ở lại
       description: '`place_id` 0 là nơi ở lâu nhất (D8). `role` cho biết địa điểm đó được gán home, office hay không.'
-      operationId: getUserPlaces
+      operationId: getGeolifeUserPlaces
       parameters:
         - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/ModelVersion'
         - name: limit
           in: query
           schema: {type: integer, minimum: 1, maximum: 100, default: 20}
@@ -135,16 +244,29 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [user_id, items]
+                required: [user_id, model_version, items]
                 properties:
                   user_id: {type: string}
+                  model_version: {type: string}
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/Place'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          $ref: '#/components/responses/NotFound'
+          $ref: '#/components/responses/UserNotFound'
+
 components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  headers:
+    XModelVersion:
+      description: Version model đã dùng để tính kết quả
+      schema: {type: string}
   parameters:
     UserId:
       name: user_id
@@ -154,15 +276,58 @@ components:
       schema:
         type: string
         pattern: '^[0-9]{3}$'
+    ModelVersion:
+      name: model_version
+      in: query
+      required: false
+      description: Version model (xem `GET /v1/models`). Bỏ trống thì dùng bản mặc định.
+      schema:
+        type: string
+        example: dbscan-v2
   responses:
-    NotFound:
-      description: Không có user này
+    BadInput:
+      description: |
+        File hoặc dữ liệu không đọc được: thiếu cột (`missing_column`), sai định dạng giờ (`bad_timestamp`),
+        file nén hỏng (`bad_archive`), hoặc sau khi làm sạch còn quá ít điểm (`too_few_points`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Thiếu hoặc sai API key (`unauthorized`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PayloadTooLarge:
+      description: Vượt giới hạn kích thước hoặc số điểm (`payload_too_large`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnsupportedMediaType:
+      description: Loại file không hỗ trợ (`unsupported_format`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Gọi quá nhanh (`rate_limited`); xem header `Retry-After`
+      headers:
+        Retry-After:
+          schema: {type: integer}
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     ValidationError:
-      description: Tham số không hợp lệ
+      description: Tham số không hợp lệ (`validation_error`), gồm `model_version` không tồn tại (`unknown_model_version`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UserNotFound:
+      description: Không có user GeoLife này (`user_not_found`)
       content:
         application/json:
           schema:
@@ -174,18 +339,122 @@ components:
       properties:
         code:
           type: string
-          example: user_not_found
+          example: payload_too_large
         message:
           type: string
+        details:
+          type: object
+          additionalProperties: true
+          description: "Thông tin thêm, ví dụ `{max_points: 50000, received: 812345}`"
+
+    ModelInfo:
+      type: object
+      required: [model_version, method, created_at, params]
+      properties:
+        model_version:
+          type: string
+          example: heuristic-v1
+        method:
+          type: string
+          description: Cách gom địa điểm
+          enum: [greedy_200m, dbscan]
+        created_at: {type: string, format: date-time}
+        git_commit: {type: string}
+        params:
+          type: object
+          additionalProperties: true
+          description: Các ngưỡng của bản này (D, T, max gap, bán kính, khung giờ...)
+          example: {D_m: 200, T_min: 30, max_gap_h: 24, place_radius_m: 200, night: '20-7', work: '9-18'}
+
+    GpsPoint:
+      type: object
+      required: [lat, lon, timestamp]
+      properties:
+        lat: {type: number, minimum: -90, maximum: 90}
+        lon: {type: number, minimum: -180, maximum: 180}
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601, phải có `Z` hoặc offset (ví dụ `2008-10-23T02:53:04Z`). Giờ không có offset bị từ chối.
+    PointsRequest:
+      type: object
+      required: [points]
+      properties:
+        points:
+          type: array
+          minItems: 2
+          maxItems: 1000000
+          items:
+            $ref: '#/components/schemas/GpsPoint'
+    UploadFile:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: |
+            Một trong ba dạng:
+            - `.csv` hoặc `.csv.gz`: có header, ít nhất các cột `lat`, `lon`, `timestamp` (ISO 8601 có offset,
+              hoặc số giây Unix UTC). Cột khác bỏ qua.
+            - `.zip` chứa các file `.plt` của GeoLife (6 dòng đầu là header; giờ trong file coi là UTC như GeoLife).
+        format:
+          type: string
+          enum: [csv, plt_zip]
+          description: Bỏ trống thì đoán theo đuôi file
+
+    InputSummary:
+      type: object
+      description: Dữ liệu đã nhận và còn lại sau từng bước, để người gọi biết vì sao kết quả thiếu
+      required: [n_points, n_points_clean, n_stays, first_time, last_time, n_days]
+      properties:
+        n_points: {type: integer, description: Số điểm nhận được}
+        n_points_clean: {type: integer, description: Số điểm còn sau làm sạch}
+        n_stays: {type: integer}
+        first_time: {type: string, format: date-time}
+        last_time: {type: string, format: date-time}
+        n_days: {type: integer, description: Số ngày có dữ liệu}
+        timezones:
+          type: array
+          items: {type: string}
+          description: Múi giờ IANA suy từ tọa độ (A9)
+          example: [Asia/Shanghai]
+
+    InferenceResult:
+      type: object
+      required: [model_version, home, office, flags, places, input]
+      properties:
+        model_version: {type: string}
+        home:
+          allOf:
+            - $ref: '#/components/schemas/Location'
+          nullable: true
+        office:
+          allOf:
+            - $ref: '#/components/schemas/Location'
+          nullable: true
+        flags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Flag'
+        places:
+          type: array
+          description: Tối đa 20 địa điểm ở lâu nhất
+          items:
+            $ref: '#/components/schemas/Place'
+        input:
+          $ref: '#/components/schemas/InputSummary'
+
     Flag:
       type: string
       description: |
         Lý do kết quả thiếu hoặc kém chắc.
-        `no_stays`: user không có stay. `no_night`, `no_workday`: không có phiếu đêm / ngày làm việc.
+        `no_stays`: không có stay. `no_night`, `no_workday`: không có phiếu đêm / ngày làm việc.
         `few_nights`, `few_workdays`: dưới 7 phiếu (A11); vẫn có kết quả nhưng `confidence` là `null`.
         `home_eq_office`: nơi thắng phiếu office trùng home nên office để trống.
         `unstable_home`, `unstable_office`: độ ổn định dưới 0,5.
-      enum: [no_stays, no_night, no_workday, few_nights, few_workdays, home_eq_office, unstable_home, unstable_office]
+        `multi_timezone`: dữ liệu nằm ở nhiều múi giờ (đi xa), khung giờ tính theo múi giờ từng điểm.
+      enum: [no_stays, no_night, no_workday, few_nights, few_workdays, home_eq_office, unstable_home, unstable_office, multi_timezone]
     Components:
       type: object
       description: Các số báo cáo thêm về phiếu bầu (mỗi cái 0 đến 1). Không tính vào `confidence`.
@@ -210,7 +479,7 @@ components:
           type: number
           minimum: 0
           maximum: 1
-          description: Phần giờ ở địa điểm đó có GPS thật (không tính vào confidence)
+          description: Phần giờ ở địa điểm đó có GPS thật
     Location:
       type: object
       required: [place_id, lat, lon, confidence, n_votes, components]
@@ -234,9 +503,10 @@ components:
           $ref: '#/components/schemas/Components'
     UserLocations:
       type: object
-      required: [user_id, home, office, flags]
+      required: [user_id, model_version, home, office, flags]
       properties:
         user_id: {type: string}
+        model_version: {type: string}
         home:
           allOf:
             - $ref: '#/components/schemas/Location'

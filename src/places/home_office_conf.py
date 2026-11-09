@@ -3,9 +3,9 @@
 Đầu vào: data/processed/places_v1/{user}_stays.parquet (stay đã gán place_id, giờ địa phương).
 
 Cách làm (D18):
-- Mỗi **đêm** (20–7h giờ địa phương, đêm bắt đầu từ ngày d) chọn địa điểm có nhiều phút chồng lên khung nhất: 1 phiếu home.
+- Mỗi **đêm** (khung đêm, mốc giờ chốt, xem NIGHT; giờ địa phương, đêm bắt đầu từ ngày d) chọn địa điểm có nhiều phút chồng lên khung nhất: 1 phiếu home.
 - Mỗi **ngày làm việc** (T2–T6; với user ở Trung Quốc bỏ ngày lễ và thêm ngày làm bù, `calendar_cn.py`) chọn địa điểm có nhiều phút trong
-  8:30–18:00 liền (giờ trưa tính như giờ khác): 1 phiếu office.
+  khung làm việc liền (giờ trưa tính như giờ khác; mốc giờ chốt, xem hằng số WORK): 1 phiếu office.
 - home = địa điểm nhiều phiếu đêm nhất. office = địa điểm nhiều phiếu ngày làm việc nhất;
   nếu trùng home thì office = None, cờ `home_eq_office`.
 - confidence (%) = lấy mẫu lại (bootstrap): bốc lại các ngày có phiếu của user, có hoàn lại, cùng số lượng, bỏ phiếu lại;
@@ -20,6 +20,7 @@ Cách làm (D18):
 from __future__ import annotations
 
 import argparse
+import sys
 import zlib
 from collections import Counter
 from pathlib import Path
@@ -27,13 +28,21 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
-PLACES_DIR = ROOT / "data" / "processed" / "places_v1"
+SRC = Path(__file__).resolve().parents[1]                 # thư mục src
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+from paths import PROJECT_ROOT as ROOT                   # noqa: E402
+from places.common import places_dir as version_dir      # noqa: E402
+from preprocess import interim                           # noqa: E402
+from preprocess.calendar_cn import in_china, is_workday_cn   # noqa: E402
+
+PLACES_DIR = version_dir("v1")                  # mặc định; chọn version khác bằng tham số places_dir / --version
 
 H = 3600.0
+# Chốt 2026-11-07 (A10, A11). Số phiếu tối thiểu là quy ước, kiểm lại ở notebooks/tuning/13.
 # Khung (giờ địa phương, số thực). work là danh sách đoạn trong ngày.
 NIGHT = (20.0, 31.0)                       # 20h tới 7h hôm sau
-WORK = [(8.5, 18.0)]                       # lõi 10–17h nằm trong; giờ trưa không loại; 18–20h vùng xám, không tính
+WORK = [(9.0, 18.0)]                       # chốt 2026-11-07 (A10); giờ trưa không loại; 18–20h vùng xám, không tính
 MIN_VOTE_MIN = 60.0                        # ít hơn 60 phút trong khung thì ngày đó không có phiếu
 N_MIN_NIGHTS = 7                           # A11: dưới mức này có cờ few_nights / few_workdays và không tính confidence
 N_MIN_WORKDAYS = 7
@@ -158,17 +167,26 @@ def workday_default(day) -> bool:
 def workday_for(stays: pd.DataFrame):
     """Lịch ngày làm việc của user: lịch nghỉ lễ Trung Quốc nếu vị trí (trung vị lat, lon của stay) nằm ở
     Trung Quốc, ngược lại T2–T6 thường."""
-    try:
-        from src.preprocess.calendar_cn import in_china, is_workday_cn
-    except ImportError:          # notebook: src/ nằm trong sys.path
-        from preprocess.calendar_cn import in_china, is_workday_cn
     if len(stays) and in_china(float(stays["lat"].median()), float(stays["lon"].median())):
         return is_workday_cn
     return workday_default
 
 
+def _side(stays: pd.DataFrame, windows, alt_windows, day_ok=None):
+    """Bỏ phiếu cho một vế (home hoặc office): (phiếu theo ngày, nơi thắng, số phiếu, các cột báo cáo)."""
+    votes = _votes(_minutes(stays, windows, day_ok))
+    top, share, margin, n = _top2(votes)
+    alt = [_votes(_minutes(stays, w, day_ok)) for w in alt_windows]
+    comp = dict(share=share, margin=margin,
+                gps=gps_share(stays, top) if top is not None else 0.0,
+                stable=_stability(votes, top, alt))
+    return votes, top, n, comp
+
+
 def infer_user(stays: pd.DataFrame, workday_fn=None) -> dict:
     """Home / office, confidence (lấy mẫu lại) và các cột báo cáo của một user. `workday_fn=None`: chọn lịch theo vị trí."""
+    if "place_id" in stays:
+        stays = stays[stays["place_id"] >= 0]            # stay nhiễu của cluster_v2 (min_samples > 1) không bỏ phiếu
     if workday_fn is None:
         workday_fn = workday_for(stays)
     r = {"user": stays["user"].iloc[0] if len(stays) else None, "n_stays": len(stays)}
@@ -177,23 +195,11 @@ def infer_user(stays: pd.DataFrame, workday_fn=None) -> dict:
     if stays.empty:
         return r | {"home": None, "office": None, "flags": "no_stays", "conf_home": np.nan, "conf_office": np.nan}
 
-    # ---- home
-    nv = _votes(_minutes(stays, [NIGHT]))
-    home, hshare, hmargin, hn = _top2(nv)
-    alt_n = [_votes(_minutes(stays, [w])) for w in NIGHT_ALT]
-    comp_h = dict(share=hshare, margin=hmargin,
-                  gps=gps_share(stays, home) if home is not None else 0.0,
-                  stable=_stability(nv, home, alt_n))
+    nv, home, hn, comp_h = _side(stays, [NIGHT], [[w] for w in NIGHT_ALT])
     if home is None:
         flags.append("no_night")
 
-    # ---- office
-    wv = _votes(_minutes(stays, WORK, workday_fn))
-    office, oshare, omargin, on = _top2(wv)
-    alt_w = [_votes(_minutes(stays, w, workday_fn)) for w in WORK_ALT]
-    comp_o = dict(share=oshare, margin=omargin,
-                  gps=gps_share(stays, office) if office is not None else 0.0,
-                  stable=_stability(wv, office, alt_w))
+    wv, office, on, comp_o = _side(stays, WORK, WORK_ALT, workday_fn)
     if office is None:
         flags.append("no_workday")
     elif home is not None and office == home:
@@ -221,24 +227,25 @@ def infer_user(stays: pd.DataFrame, workday_fn=None) -> dict:
 def run(users, places_dir: Path = PLACES_DIR, workday_fn=None) -> pd.DataFrame:
     rows = []
     for u in users:
-        f = Path(places_dir) / f"{u}_stays.parquet"
-        if not f.exists():
-            continue
-        rows.append(infer_user(pd.read_parquet(f), workday_fn))
+        stays = interim.read_df(Path(places_dir) / f"{u}_stays")
+        if stays is not None:
+            rows.append(infer_user(stays, workday_fn))
     return pd.DataFrame(rows)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--all", action="store_true", help="chạy cả nhóm test (mặc định chỉ dev)")
+    ap.add_argument("--all", action="store_true", help="chạy cả nhóm test (mặc định chỉ validation)")
     ap.add_argument("--test", action="store_true", help="chỉ nhóm test, chạy một lần sau khi khoá cấu hình (D19)")
-    ap.add_argument("--out", default=None, help="mặc định reports/home_office_v1_{dev,test,all}.csv")
+    ap.add_argument("--version", default="v1", choices=["v1", "v2"],
+                    help="đọc stay đã gán địa điểm từ data/processed/places_<version> (cluster_v1 hoặc cluster_v2); mặc định v1")
+    ap.add_argument("--out", default=None, help="mặc định reports/home_office_<version>_{val,test,all}.csv")
     a = ap.parse_args()
-    from src.eda import split
-    group = "test" if a.test else "all" if a.all else "dev"
-    users = {"test": split.test_users, "all": lambda: split.dev_users() + split.test_users(), "dev": split.dev_users}[group]()
-    a.out = a.out or str(ROOT / "reports" / f"home_office_v1_{group}.csv")
-    df = run(users)
+    from eda import split
+    group = "test" if a.test else "all" if a.all else "val"
+    users = {"test": split.test_users, "all": lambda: split.val_users() + split.test_users(), "val": split.val_users}[group]()
+    a.out = a.out or str(ROOT / "reports" / f"home_office_{a.version}_{group}.csv")
+    df = run(users, version_dir(a.version))
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(a.out, index=False)
     print(f"{len(df)} user -> {a.out}")

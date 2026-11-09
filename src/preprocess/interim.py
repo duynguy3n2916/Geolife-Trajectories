@@ -17,7 +17,8 @@ from pathlib import Path
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from paths import PROJECT_ROOT         # noqa: F401 (các module khác import PROJECT_ROOT từ đây)
+
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "geolife" / "Data"
 INTERIM_DIR = PROJECT_ROOT / "data" / "interim"
 KINDS = ("points", "files", "labels")

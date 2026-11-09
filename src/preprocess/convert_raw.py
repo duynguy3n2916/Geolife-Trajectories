@@ -11,16 +11,17 @@ Chạy:
 from __future__ import annotations
 
 import argparse
+import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 
-if __package__:                       # import từ notebook / module khác
-    from .clean_trajectory import read_plt
-    from . import interim
-else:                                 # chạy trực tiếp: python src/preprocess/convert_raw.py
-    from clean_trajectory import read_plt
-    import interim
+SRC = Path(__file__).resolve().parents[1]                 # thư mục src
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+from preprocess import interim                         # noqa: E402
+from preprocess.clean_trajectory import read_plt       # noqa: E402
 
 
 # Đọc labels.txt của một user (nhãn phương tiện). Thời gian trong file là GMT theo User Guide.

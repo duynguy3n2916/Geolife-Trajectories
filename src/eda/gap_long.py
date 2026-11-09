@@ -1,4 +1,4 @@
-"""Mục 23.6 (notebook 08): khoảng trống dài (đến 72 giờ) so với home / office suy ra từ GPS thật.
+"""Mục 2.6 (notebook 11): khoảng trống dài (đến 72 giờ) so với home / office suy ra từ GPS thật.
 
 `gap_evidence.py` chỉ giữ khoảng trống ≤ 24 giờ (đúng như pipeline). Ở đây đọc lại điểm sạch của từng user và xét mọi
 khoảng trống 30 phút – 72 giờ, để có mẫu cho cả khoảng 24–72 giờ.

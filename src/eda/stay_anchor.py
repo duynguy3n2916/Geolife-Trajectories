@@ -1,4 +1,4 @@
-"""So sánh các cách chọn điểm neo cho stay point và kiểm tra gap-stay và chọn max gap (notebook 07 và 08, mục 18–23).
+"""So sánh các cách chọn điểm neo cho stay point và kiểm tra gap-stay và chọn max gap (notebook 10 và 08, mục 1–2 (notebook 10, 11)).
 
 Mọi cách dùng cùng D = 200 m, T = 30 phút và cùng cách chia đoạn như src/stays/detect.py
 (gộp file của user, ngắt ở khoảng trống > 24 giờ). Chỉ khác cách chọn neo:
@@ -23,7 +23,7 @@ from stays.detect import DIST_M, MAX_GAP_S, TIME_S, _prepare, detect_stays, dete
 
 VARIANTS = ["li", "h1_mean"]
 SPLIT_GAP_S = 10 * 60  # hai stay liền nhau, tâm cách < D, nghỉ < 10 phút: coi là stay bị tách đôi
-D_FAR = DIST_M         # gap-stay có hai đầu khoảng trống cách nhau > D_FAR: "hai đầu xa nhau" (mục 22)
+D_FAR = DIST_M         # gap-stay có hai đầu khoảng trống cách nhau > D_FAR: "hai đầu xa nhau" (mục 1 (notebook 11))
 CACHE_DIR = interim.INTERIM_DIR / "eda_stay_anchor_mean"      # thư mục mới: kết quả cũ (neo trung vị có trọng số) nằm ở eda_stay_anchor, không đọc lại
 
 
@@ -284,7 +284,7 @@ def run_labels(users, variants=VARIANTS, clean_dir: Path = CLEAN_DIR, cache_dir:
 
 
 # =============================================================================
-# KIỂM TRA GAP-STAY (mục 22)
+# KIỂM TRA GAP-STAY (mục 1 (notebook 11))
 # =============================================================================
 def _hours_in(t0, t1, off_h, h_from, h_to, weekday_only=False):
     """Số giờ của đoạn [t0, t1] (UTC, giây) rơi vào khung giờ địa phương [h_from, h_to)."""
@@ -397,7 +397,7 @@ def _local_hour(ts, off_h):
 
 
 def _is_night(h_start, h_end):
-    """Qua đêm: tắt 18–3h, bật 5–12h (giống mục 22). Dùng cho khoảng trống thật."""
+    """Qua đêm: tắt 18–3h, bật 5–12h (giống mục 1 (notebook 11)). Dùng cho khoảng trống thật."""
     return (h_start >= 18 or h_start < 3) and 5 <= h_end < 12
 
 

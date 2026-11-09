@@ -33,17 +33,19 @@ Chạy (từ bất kỳ thư mục nào; đường dẫn tương đối tính t�
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-if __package__:                       # import từ notebook: preprocess.clean_trajectory
-    from .local_time import add_local_time
-    from . import interim
-else:                                 # chạy trực tiếp: python src/preprocess/clean_trajectory.py
-    from local_time import add_local_time
-    import interim
+SRC = Path(__file__).resolve().parents[1]                 # thư mục src
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+from geo import EARTH_R, haversine_m                   # noqa: E402,F401 (haversine_m, EARTH_R: các module khác vẫn import từ đây)
+from paths import PROJECT_ROOT                         # noqa: E402,F401
+from preprocess import interim                         # noqa: E402
+from preprocess.local_time import add_local_time       # noqa: E402
 
 
 # =============================================================================
@@ -60,12 +62,12 @@ TIME_MAX = pd.Timestamp("2012-09-01", tz="UTC")  # không bao gồm: hết thán
 
 # ---- Bước 2: timestamp trùng (A3, EDA notebook 01 mục 3)
 # Các dòng cùng timestamp lệch nhau quá quãng đi được trong 1 giây ở MAX_SPEED_KMH thì không thể cùng đúng,
-# và không biết dòng nào sai (dòng đầu chỉ khớp quỹ đạo ở ~42% số nhóm), nên bỏ cả nhóm.
-DUP_MAX_DIST_M = 300.0 / 3.6   # khoảng 83 m = 300 km/h × 1 giây (cùng ngưỡng A5)
+# và không biết dòng nào sai, nên bỏ cả nhóm.
+DUP_MAX_DIST_M = 300.0 / 3.6   # A3 (chọn 2026-11-07, tuning/05): khoảng 83 m = 300 km/h × 1 giây; nhóm lệch xa hơn thì bỏ cả nhóm
 
 # ---- Bước 3: outlier (A5, A6)
-MAX_SPEED_KMH = 300.0      # bước vào và bước ra đều vượt mức này mới bị nghi là chuỗi outlier (vùng trũng EDA mục 5)
-OUTLIER_MAX_K = 5          # chuỗi có tối đa bao nhiêu điểm X thì bị xoá (A6, notebook 03)
+MAX_SPEED_KMH = 300.0      # A5 (chọn 2026-11-07, tuning/06): bước vào và bước ra đều vượt mức này mới bị nghi là chuỗi outlier; mốc vật lý: tàu tối đa khoảng 237 km/h, máy bay trung vị 668 km/h
+OUTLIER_MAX_K = 5          # A6 (chọn 2026-11-07, tuning/07): chuỗi có tối đa bao nhiêu điểm X thì bị xoá
 MAX_ITER = 5               # số vòng lặp tối đa (xoá một chuỗi có thể làm lộ chuỗi bên cạnh)
 
 # ---- Khoảng trống (A7): bước có dt lớn hơn mức này là máy tắt / mất tín hiệu, không phải di chuyển.
@@ -73,9 +75,7 @@ MAX_ITER = 5               # số vòng lặp tối đa (xoá một chuỗi có 
 GAP_S = 30 * 60            # giây
 
 # ---- Hằng số tính toán và đường dẫn
-EARTH_R = 6371000.0        # bán kính Trái Đất (mét)
 EPOCH = pd.Timestamp("1970-01-01", tz="UTC")
-PROJECT_ROOT = Path(__file__).resolve().parents[2]   # thư mục Home_Office
 CLEAN_DIR = PROJECT_ROOT / "data" / "processed" / "clean"   # nơi ghi dữ liệu đã lọc mặc định
 
 # Các cột thống kê, cộng dồn theo user và ghi vào filter_stats.csv
@@ -106,14 +106,6 @@ def read_plt(path: str | Path) -> pd.DataFrame:
 # HÀM TÍNH TOÁN DÙNG CHUNG
 # =============================================================================
 
-# Khoảng cách (mét) giữa hai điểm trên mặt cầu, tính cho cả mảng cùng lúc.
-def haversine_m(lat1, lon1, lat2, lon2):
-    """Khoảng cách (mét) giữa hai điểm trên mặt cầu; nhận cả mảng."""
-    lat1, lon1, lat2, lon2 = map(np.radians, (lat1, lon1, lat2, lon2))
-    a = np.sin((lat2 - lat1) / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin((lon2 - lon1) / 2) ** 2
-    return 2 * EARTH_R * np.arcsin(np.sqrt(a))
-
-
 # Đổi timestamp sang số giây kể từ 1970 để tính toán bằng numpy.
 def _seconds(series: pd.Series) -> np.ndarray:
     """Timestamp -> số giây kể từ 1970 (để tính bằng numpy)."""
@@ -142,11 +134,12 @@ def _steps(lat: np.ndarray, lon: np.ndarray, t: np.ndarray):
 # Bỏ điểm có tọa độ ngoài phạm vi, hoặc timestamp không đọc được / ngoài 04/2007–08/2012.
 # Làm trước tiên vì một timestamp sai sẽ làm sai mọi tốc độ quanh nó.
 # -----------------------------------------------------------------------------
-def drop_invalid_points(df: pd.DataFrame, stats: dict) -> pd.DataFrame:
-
+def drop_invalid_points(df: pd.DataFrame, stats: dict,
+                        time_min: pd.Timestamp = TIME_MIN, time_max: pd.Timestamp = TIME_MAX) -> pd.DataFrame:
+    """`time_min`, `time_max` mặc định là khoảng thu thập của GeoLife (A2); dữ liệu của người dùng API truyền khoảng khác."""
     valid_coord = df["lat"].between(-90, 90) & df["lon"].between(-180, 180)
     ts = df["timestamp"]
-    valid_time = ts.notna() & (ts >= TIME_MIN) & (ts < TIME_MAX)
+    valid_time = ts.notna() & (ts >= time_min) & (ts < time_max)
     stats["n_bad_coord"] = int((~valid_coord).sum())
     stats["n_bad_time"] = int((valid_coord & ~valid_time).sum())
     return df[valid_coord & valid_time]
@@ -157,7 +150,7 @@ def drop_invalid_points(df: pd.DataFrame, stats: dict) -> pd.DataFrame:
 # Sắp xếp ổn định theo thời gian rồi xét từng nhóm dòng cùng timestamp, so với dòng đầu nhóm:
 #   R1 giống hệt, R2 chỉ khác độ cao, R3 lệch ≤ DUP_MAX_DIST_M   -> GỘP: giữ dòng đầu      (n_dup)
 #   R4 có dòng lệch > DUP_MAX_DIST_M                             -> XOÁ cả nhóm           (n_dup_conflict)
-# Không lấy trung bình tọa độ: dòng đầu chỉ cách tâm nhóm < 1 m và stay không đổi (EDA mục 3.4, 3.6).
+# Không lấy trung bình tọa độ: dòng đầu chỉ cách tâm nhóm < 1 m và stay không đổi (EDA mục 1.1, 3.6 (notebook 01, 05)).
 # -----------------------------------------------------------------------------
 def drop_duplicate_timestamps(df: pd.DataFrame, stats: dict,
                               max_dist_m: float = DUP_MAX_DIST_M) -> pd.DataFrame:
@@ -256,7 +249,7 @@ def remove_outliers(df: pd.DataFrame, stats: dict, max_speed_kmh: float = MAX_SP
 # -----------------------------------------------------------------------------
 def filter_track(df: pd.DataFrame, max_speed_kmh: float = MAX_SPEED_KMH,
                  gap_s: float = GAP_S, outlier_max_k: int = OUTLIER_MAX_K,
-                 max_iter: int = MAX_ITER):
+                 max_iter: int = MAX_ITER, time_min: pd.Timestamp = TIME_MIN, time_max: pd.Timestamp = TIME_MAX):
     """Chạy bước 1–4 trên một file. Trả về (bảng đã lọc, dict thống kê)."""
     stats = {"n_raw": len(df), "n_bad_coord": 0, "n_bad_time": 0, "n_dup": 0, "n_dup_conflict": 0, "n_outlier": 0}
     if df.empty:
@@ -264,7 +257,7 @@ def filter_track(df: pd.DataFrame, max_speed_kmh: float = MAX_SPEED_KMH,
         return df.assign(tz_name=pd.Series(dtype="category"), tz_offset_h=pd.Series(dtype=float),
                          local_time=pd.Series(dtype="datetime64[ns]")), stats
 
-    d = drop_invalid_points(df, stats)                                    # bước 1
+    d = drop_invalid_points(df, stats, time_min, time_max)               # bước 1
     d = drop_duplicate_timestamps(d, stats)                               # bước 2
     d = remove_outliers(d, stats, max_speed_kmh, outlier_max_k, gap_s, max_iter)   # bước 3
     d = add_local_time(d)                                                 # bước 4

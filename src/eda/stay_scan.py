@@ -1,4 +1,4 @@
-"""Kiểm chứng ngưỡng stay point bằng nhãn phương tiện (notebook 06).
+"""Kiểm chứng ngưỡng stay point bằng nhãn phương tiện (notebook 09).
 
 Ý tưởng: labels.txt (69 user) ghi các khoảng thời gian người dùng ĐANG DI CHUYỂN (walk, bus, car...).
 Chạy thuật toán stay point (Li et al., 2008) chỉ trên các điểm nằm trong những khoảng đó: mọi stay
@@ -31,8 +31,8 @@ WINDOW = 512                      # số điểm tính bằng numpy cho mọi đ
 
 
 def labeled_users(clean_dir: Path = CLEAN_DIR) -> list[str]:
-    """User vừa có nhãn vừa có dữ liệu đã lọc, chỉ trong nhóm dev (D17)."""
-    have = set(interim.list_stems(Path(clean_dir))) & set(split.dev_users())
+    """User vừa có nhãn vừa có dữ liệu đã lọc, chỉ trong nhóm validation (D17)."""
+    have = set(interim.list_stems(Path(clean_dir))) & set(split.val_users())
     return sorted(u for u in interim.list_stems(interim.INTERIM_DIR / "labels") if u in have)
 
 

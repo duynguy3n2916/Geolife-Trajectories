@@ -117,7 +117,7 @@ def _base(u, agg):
     row["n_outside_cn"] = int((~cn).sum())
     row["lat_med"], row["lon_med"] = float(np.median(lat)), float(np.median(lon))
 
-    # ---- giờ địa phương (giả thuyết, kiểm chứng ở notebook 04 mục 10); chỉ điểm có timestamp hợp lệ
+    # ---- giờ địa phương (giả thuyết, kiểm chứng ở notebook 03 mục 2); chỉ điểm có timestamp hợp lệ
     off = local_offset_h(lat, lon)
     tl = t + off * 3600.0
     day_loc = np.floor(tl / 86400).astype(np.int64)
@@ -135,7 +135,7 @@ def _base(u, agg):
 
 
 # -----------------------------------------------------------------------------
-# Chủ đề "speed" (notebook 02): khoảng lấy mẫu, tốc độ, khoảng trống, nhãn phương tiện
+# Chủ đề "speed" (notebook 02 và 05): khoảng lấy mẫu, tốc độ, khoảng trống, nhãn phương tiện
 # -----------------------------------------------------------------------------
 def _speed(c, agg):
     dt, speed, t = c["dt"], c["speed"], c["t"]
@@ -163,7 +163,7 @@ def _speed(c, agg):
 
 
 # -----------------------------------------------------------------------------
-# Chủ đề "outliers" (notebook 03): chuỗi đi ra rồi quay về
+# Chủ đề "outliers" (notebook 07): chuỗi đi ra rồi quay về
 # -----------------------------------------------------------------------------
 def find_excursions(lat, lon, t, dt, speed, same_file):
     """Dò các chuỗi X1..Xk "đi ra rồi quay về", tham lam từ trái sang phải, không chồng nhau.
@@ -221,7 +221,7 @@ def _outliers(c, agg):
 
 
 # -----------------------------------------------------------------------------
-# Chủ đề "space_time" (notebook 04): không gian, kiểm chứng múi giờ, theo tháng / năm
+# Chủ đề "space_time" (notebook 03): không gian, kiểm chứng múi giờ, theo tháng / năm
 # -----------------------------------------------------------------------------
 def _space_time(c, agg):
     lat, lon, t, tl, v, cn, bj, ts, mins = c["lat"], c["lon"], c["t"], c["tl"], c["v"], c["cn"], c["bj"], c["ts"], c["mins"]
@@ -247,7 +247,7 @@ def _space_time(c, agg):
 
 
 # -----------------------------------------------------------------------------
-# Chủ đề "coverage" (notebook 05): độ phủ theo thứ × giờ, khoảng trống
+# Chủ đề "coverage" (notebook 04 và 07): độ phủ theo thứ × giờ, khoảng trống
 # -----------------------------------------------------------------------------
 def _coverage(c, agg):
     mins, dt, dist, tl, v, lat, lon, bj = c["mins"], c["dt"], c["dist"], c["tl"], c["v"], c["lat"], c["lon"], c["bj"]

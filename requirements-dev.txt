@@ -1,0 +1,2 @@
+pytest
+scikit-learn   # chỉ để test so cluster_v2 với DBSCAN của scikit-learn

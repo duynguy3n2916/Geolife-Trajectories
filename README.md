@@ -78,7 +78,8 @@ Home_Office/
 │       └── utils.py              hàm nhỏ (phân vị từ histogram, định dạng nhãn)
 ├── tests/                   pytest: gom cụm, bỏ phiếu, infer (python -m pytest tests)
 └── reports/
-    ├── cp1_slides.html      slide tổng kết Checkpoint 1; slide đều để ở reports/ (mở bằng trình duyệt; ← → chuyển slide, Ctrl+P xuất PDF)
+    ├── cp1_slides_v1.html   slide tổng kết Checkpoint 1 (bản đầu)
+    ├── slides_2026-11-07.html  slide làm lại từ đầu, một file HTML (← → chuyển slide, Ctrl+P xuất PDF); slide đều để ở reports/
     └── filter_stats.csv     số liệu lọc theo user
 ```
 

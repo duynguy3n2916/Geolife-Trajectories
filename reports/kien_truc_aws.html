@@ -147,7 +147,6 @@ footer { font-size: 13px; color: var(--muted); }
         </defs>
 
         <!-- lanes -->
-        <line class="lane" x1="10" y1="420" x2="1030" y2="420"/>
 
         <!-- Dev machine -->
         <rect class="ext" x="20" y="40" width="200" height="340" rx="8"/>
@@ -259,7 +258,7 @@ footer { font-size: 13px; color: var(--muted); }
     <h2>Hai luồng chính</h2>
     <div class="flows">
       <div class="flow">
-        <h3>Batch: tính kết quả (offline)</h3>
+        <h3>Batch: tính kết quả</h3>
         <div class="tag">Chạy khi có dữ liệu mới hoặc đổi ngưỡng</div>
         <ol class="steps">
           <li>Đưa GPS thô và ngưỡng của từng model lên S3.</li>
@@ -269,7 +268,7 @@ footer { font-size: 13px; color: var(--muted); }
         </ol>
       </div>
       <div class="flow">
-        <h3>API: tra cứu (online)</h3>
+        <h3>API: tra cứu</h3>
         <div class="tag">Không chạy model, chỉ đọc file đã tính</div>
         <ol class="steps">
           <li>App gọi <code>GET /v1/users/{user_id}/home-office</code>, có thể kèm <code>?model_version=dbscan-v2</code>.</li>

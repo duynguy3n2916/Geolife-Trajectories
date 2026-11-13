@@ -243,31 +243,3 @@ resource "aws_lambda_permission" "apigw" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
-
-# =====================================================================
-# 5. EventBridge: gọi Lambda tra cứu mỗi 5 phút để nó luôn "ấm"
-# =====================================================================
-# Lambda để lâu không ai gọi thì AWS tắt container; lần gọi sau phải khởi động lại (chậm hơn 1-2 giây).
-# Lần gọi định kỳ này giả làm request GET /health (handler trả lời ngay, không đọc kết quả của user nào).
-# Chi phí: khoảng 8 640 lần gọi mỗi tháng, nằm trong mức miễn phí của Lambda và EventBridge.
-
-resource "aws_cloudwatch_event_rule" "lookup_warm" {
-  name                = "home-office-lookup-warm"
-  description         = "Gọi Lambda tra cứu mỗi 5 phút để tránh khởi động chậm"
-  schedule_expression = "rate(5 minutes)"
-}
-
-resource "aws_cloudwatch_event_target" "lookup_warm" {
-  rule  = aws_cloudwatch_event_rule.lookup_warm.name
-  arn   = aws_lambda_function.lookup.arn
-  input = jsonencode({ routeKey = "GET /health" })
-}
-
-# Cho EventBridge quyền gọi Lambda tra cứu (chỉ từ đúng rule này).
-resource "aws_lambda_permission" "eventbridge_warm" {
-  statement_id  = "eventbridge-warm"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lookup.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.lookup_warm.arn
-}

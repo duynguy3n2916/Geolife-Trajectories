@@ -207,13 +207,6 @@ footer { font-size: 13px; color: var(--muted); }
         <text class="t-sub" x="546" y="522">trả kết quả đã tính sẵn</text>
         <text class="t-sub" x="546" y="542">zip · Python 3.12 · 256 MB · 10 s</text>
 
-        <!-- EventBridge -->
-        <rect class="tf" x="830" y="460" width="190" height="106" rx="8"/>
-        <text class="t-badge" x="846" y="480">LỊCH</text>
-        <text class="t-title" x="846" y="502">EventBridge</text>
-        <text class="t-sub" x="846" y="522">lịch mỗi 5 phút</text>
-        <text class="t-sub" x="846" y="540">giữ Lambda tra cứu "ấm"</text>
-
         <!-- Model Registry (dự kiến) -->
         <rect class="plan" x="285" y="312" width="185" height="96" rx="8"/>
         <text class="t-badge" x="299" y="332">DỰ KIẾN</text>
@@ -255,13 +248,11 @@ footer { font-size: 13px; color: var(--muted); }
 
         <line class="arr" x1="770" y1="300" x2="830" y2="300" stroke-dasharray="2 4"/>
 
-        <path class="arr" d="M830 513 H770" marker-end="url(#ah)"/>
 
         <path class="arr-plan" d="M220 360 H285" marker-end="url(#ahp)"/>
         <text class="t-lbl" x="226" y="352">đăng ký</text>
         <path class="arr-plan" d="M470 330 H530" marker-end="url(#ahp)"/>
         <text class="t-lbl" x="476" y="322">trỏ tới</text>
-        <text class="t-lbl" x="776" y="505">ping</text>
       </svg>
     </div>
   </section>
@@ -287,7 +278,6 @@ footer { font-size: 13px; color: var(--muted); }
           <li>API Gateway giới hạn 20 request/giây rồi chuyển cho Lambda tra cứu.</li>
           <li>Lambda kiểm tra <code>user_id</code> và version, đọc file kết quả trên S3. Nếu không truyền version thì dùng version mặc định (cấu hình trên S3, đổi được mà không cần deploy lại).</li>
           <li>Trả JSON gồm toạ độ home/office, độ tin cậy, số phiếu, kèm header <code>X-Model-Version</code>.</li>
-          <li>Song song, EventBridge gọi Lambda tra cứu mỗi 5 phút (như một request <code>/health</code>) để Lambda không bị tắt, nên người dùng không gặp lần gọi đầu bị chậm.</li>
         </ol>
       </div>
     </div>
@@ -304,7 +294,6 @@ footer { font-size: 13px; color: var(--muted); }
           <tr><td>Lambda batch</td><td class="num">2048 MB · 900 s</td><td>Chạy theo lô, chỉ trả tiền khi chạy. Đã đo ngày 12/11 với user lớn nhất (khoảng 2,16 triệu điểm GPS).</td><td><span class="pill tf">đang chạy</span></td></tr>
           <tr><td>Lambda tra cứu</td><td class="num">256 MB · 10 s · zip</td><td>Chỉ đọc một file JSON, nên cấu hình nhỏ là đủ và sửa code nhanh.</td><td><span class="pill tf">đang chạy</span></td></tr>
           <tr><td>API Gateway</td><td class="num">HTTP API · 20/50 req/s</td><td>Rẻ hơn REST API. Có throttle để tránh bị gọi tràn.</td><td><span class="pill tf">đang chạy</span></td></tr>
-          <tr><td>EventBridge</td><td class="num">rate(5 minutes)</td><td>Giữ Lambda tra cứu luôn sẵn sàng. Khoảng 8.640 lần gọi mỗi tháng, nằm trong mức miễn phí.</td><td><span class="pill tf">đang chạy</span></td></tr>
           <tr><td>Model Registry</td><td class="num">SageMaker · 2 version</td><td>Ghi lại từng version model (heuristic-v1, dbscan-v2), trỏ tới ngưỡng và kết quả trên S3, đánh dấu version được duyệt. Chỉ phía batch dùng, API không đọc registry.</td><td><span class="pill plan">dự kiến</span></td></tr>
           <tr><td>IAM role ×2</td><td class="num">quyền tối thiểu</td><td>Mỗi Lambda chỉ được chạm đúng thư mục S3 nó cần.</td><td><span class="pill tf">đang chạy</span></td></tr>
         </tbody>
@@ -359,7 +348,7 @@ footer { font-size: 13px; color: var(--muted); }
         </tbody>
       </table>
     </div>
-    <p style="margin-top:14px">Cold start làm phía máy chủ chậm thêm khoảng 0,6 giây (khởi động Python và thư viện AWS, lần đọc S3 đầu tiên). Phần còn lại của 1,5 giây ở lần đầu chủ yếu là máy dev mở kết nối HTTPS mới. Khi đã ấm, mỗi lần tra cứu chỉ tốn khoảng 30 ms trên máy chủ, còn lại là đường mạng từ Việt Nam tới Singapore. Lịch EventBridge 5 phút giữ cho một bản Lambda luôn ấm, nên bỏ được 0,6 giây này cho người gọi đầu tiên, gần như miễn phí. Nhiều request đồng thời vượt quá một bản vẫn có thể gặp cold start.</p>
+    <p style="margin-top:14px">Cold start làm phía máy chủ chậm thêm khoảng 0,6 giây (khởi động Python và thư viện AWS, lần đọc S3 đầu tiên). Phần còn lại của 1,5 giây ở lần đầu chủ yếu là máy dev mở kết nối HTTPS mới. Khi đã ấm, mỗi lần tra cứu chỉ tốn khoảng 30 ms trên máy chủ, còn lại là đường mạng từ Việt Nam tới Singapore. Mức chậm này chấp nhận được với đồ án, nên không dùng lịch gọi định kỳ để giữ Lambda ấm. Trước khi demo, chỉ cần gọi <code>/health</code> một lần.</p>
   </section>
 
   <section>
@@ -380,7 +369,7 @@ footer { font-size: 13px; color: var(--muted); }
     </div>
   </section>
 
-  <footer>Trạng thái ngày 13/11/2026: các thành phần ghi "đang chạy" đã hoạt động trên AWS, test API qua 5/5. Lịch EventBridge đã viết xong, chờ triển khai. Model Registry và các mục trong phần "Cần chốt" là đề xuất, chưa làm.</footer>
+  <footer>Trạng thái ngày 13/11/2026: các thành phần ghi "đang chạy" đã hoạt động trên AWS, test API qua 5/5. Model Registry và các mục trong phần "Cần chốt" là đề xuất, chưa làm.</footer>
 </div>
 
 </html>

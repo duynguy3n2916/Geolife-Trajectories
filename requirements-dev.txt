@@ -1,3 +1,4 @@
 pytest
 httpx         # TestClient của FastAPI (tests/test_api.py)
 scikit-learn  # chỉ để test so cluster_v2 với DBSCAN của scikit-learn
+mlflow        # mlflow_track.py: ghi run + model registry

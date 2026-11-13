@@ -23,3 +23,8 @@ reports/duplicates/
 reports/_fig_slide/
 
 docs/
+# MLflow local (mlflow_track.py)
+mlflow.db
+mlruns/
+mlartifacts/
+results/

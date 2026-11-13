@@ -1,0 +1,10 @@
+# Provider tải về khi `terraform init` (nặng, tải lại được)
+.terraform/
+# State: sổ ghi của Terraform, chỉ giữ trên máy (xem README.md mục State)
+*.tfstate
+*.tfstate.*
+# File zip tạm của Lambda tra cứu
+build/
+# File plan lưu tạm
+*.tfplan
+crash.log

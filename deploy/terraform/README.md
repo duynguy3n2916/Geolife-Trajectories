@@ -64,9 +64,14 @@ Copy-Item terraform.tfstate "terraform.tfstate.$(Get-Date -Format yyyyMMdd_HHmm)
 
 ## Sau khi chuyển sang Terraform
 
-- Không chạy `deploy\batch\deploy.ps1`, `setup_async.ps1`, `lookup\deploy.ps1` nữa (chúng sửa trực tiếp tài nguyên mà Terraform đang quản lý).
-- `cleanup.ps1` được thay bằng `terraform destroy` (xoá 17 resource, **không** đụng bucket và ECR). Đừng chạy nếu không chắc.
+Đã apply ngày 13/11/2026 (`terraform plan` sau đó: No changes; `test.ps1` qua cả 5 phép thử). Vì vậy đã xoá:
+`batch\deploy.ps1`, `batch\setup_async.ps1`, `lookup\deploy.ps1`, `cleanup.ps1`, `lambda-trust.json`
+(vẫn xem lại được trong lịch sử git).
+
+- Đặt version mặc định của API: `.\deploy\data\set_default_version.ps1 dbscan-v2` (thay cho `lookup\deploy.ps1 -DefaultVersion`).
+- Xoá hạ tầng: `terraform destroy` (xoá 17 resource, **không** đụng bucket và ECR). Đừng chạy nếu không chắc.
 - Vẫn dùng như cũ: `upload_data.ps1`, `upload_params.ps1`, `build_bundle.ps1` + CloudShell, `run_batch.ps1`, `test.ps1`.
+- `imports.tf` đã hết tác dụng sau lần apply đầu; giữ lại cũng vô hại.
 
 ## Lỗi hay gặp
 

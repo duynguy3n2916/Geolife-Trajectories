@@ -8,17 +8,12 @@ $Profile = "home-office"             # profile AWS CLI, đăng nhập bằng: aw
 $Acct    = (aws.exe sts get-caller-identity --profile $Profile --query Account --output text 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $Acct) { throw "Chưa đăng nhập AWS. Chạy: aws login --profile $Profile --region $Region" }
 
-# ---- Tên tài nguyên (mọi tên bắt đầu bằng home-office) ----
+# ---- Tên tài nguyên mà các script còn dùng (mọi tên bắt đầu bằng home-office) ----
+# Role, function, hàng đợi, API do Terraform tạo và quản lý: xem deploy/terraform/main.tf.
 $Bucket     = "home-office-lambda-sg-$Acct"     # S3: geolife/ (GPS thô), models/ (params), results/ (kết quả), build/ (gói build)
 $Repo       = "home-office-lambda"              # ECR chứa image của Lambda batch (giữ tên cũ vì image đã đẩy)
-$Image      = "$Acct.dkr.ecr.$Region.amazonaws.com/${Repo}:v1"
 $BatchFn    = "home-office-batch"               # Lambda chạy model cho một user
-$BatchRole  = "home-office-batch-role"
 $Dlq        = "home-office-batch-dlq"           # hàng đợi SQS nhận các lần gọi bất đồng bộ bị lỗi
-$LookupFn   = "home-office-lookup"              # Lambda tra cứu kết quả cho API
-$LookupRole = "home-office-lookup-role"
-$ApiName    = "home-office-api"                 # API Gateway HTTP API
-$TrustFile  = "deploy/lambda-trust.json"        # cho phép dịch vụ Lambda dùng role
 
 # ---- Hàm tiện ích ----
 # Gọi AWS CLI kèm vùng và profile. Gọi aws.exe (không phải aws) vì PowerShell không phân biệt hoa thường:
@@ -36,15 +31,4 @@ function New-TempJson([string]$Name, [string]$Json) {
     $path = Join-Path $env:TEMP $Name
     [IO.File]::WriteAllText($path, $Json)
     return $path
-}
-
-# Tạo role cho Lambda nếu chưa có (kèm quyền ghi log CloudWatch). Trả $true nếu vừa tạo.
-function New-LambdaRole([string]$Name) {
-    Aws iam get-role --role-name $Name 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) { return $false }
-    Aws iam create-role --role-name $Name --assume-role-policy-document "file://$TrustFile" | Out-Null
-    Assert-Ok "tạo role $Name"
-    Aws iam attach-role-policy --role-name $Name --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-    Assert-Ok "gắn quyền ghi log cho $Name"
-    return $true
 }

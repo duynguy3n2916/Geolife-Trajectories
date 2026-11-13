@@ -1,5 +1,5 @@
 # Dữ liệu (lớn, tải riêng)
-data/
+/data/
 
 # Python
 __pycache__/

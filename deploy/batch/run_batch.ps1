@@ -5,7 +5,7 @@
 #   - Đồng bộ (mặc định): máy bạn mở tối đa -Concurrency lần gọi cùng lúc và chờ từng lần trả lời,
 #     nên biết ngay lần nào lỗi (thử lại một lần). Phải để cửa sổ mở đến khi xong.
 #   - Bất đồng bộ (-Async): chỉ gửi yêu cầu (mỗi yêu cầu dưới 1 giây) rồi Lambda tự chạy; lỗi thì Lambda tự thử lại,
-#     lỗi hẳn thì vào hàng đợi $Dlq. Tắt máy cũng được. Cần chạy setup_async.ps1 trước.
+#     lỗi hẳn thì vào hàng đợi $Dlq. Tắt máy cũng được. Hàng đợi và cấu hình thử lại do Terraform tạo (deploy\terraform).
 #     Ở cách này mọi user đều có file (kể cả không ra home/office) để đếm được đủ số user.
 #
 # Cách chạy (từ thư mục Home_Office):

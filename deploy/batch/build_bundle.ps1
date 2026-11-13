@@ -31,4 +31,4 @@ Write-Host ""
 Write-Host "Bước 3b: mở CloudShell (vùng Singapore) và dán NGUYÊN dòng dưới đây:" -ForegroundColor Green
 Write-Host "cd ~ && rm -rf ho && mkdir ho && cd ho && aws s3 cp s3://$Bucket/build/batch_bundle.tar.gz - --region $Region | tar xz && bash deploy/batch/cloudshell_build.sh"
 Write-Host ""
-Write-Host "Khi CloudShell in 'Xong', quay lại đây chạy: .\deploy\batch\deploy.ps1"
+Write-Host "Khi CloudShell in 'Xong', đưa image mới lên Lambda:  cd deploy\terraform; terraform apply"

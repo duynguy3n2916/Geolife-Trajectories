@@ -1,0 +1,10 @@
+{
+  "D_m": 200.0,
+  "T_min": 30.0,
+  "max_gap_h": 24.0,
+  "stay_method": "h1_mean",
+  "night": "20-7",
+  "work": "9-18",
+  "min_votes": 7,
+  "place_radius_m": 200.0
+}

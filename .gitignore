@@ -28,3 +28,9 @@ mlflow.db
 mlruns/
 mlartifacts/
 results/
+
+# deploy: log lần chạy, gói tạm, địa chỉ API
+deploy/batch/runs/
+deploy/bench/pack/
+deploy/lookup/api_url.txt
+ho_build.tar.gz

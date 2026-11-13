@@ -27,7 +27,7 @@ REGION = "ap-southeast-1"
 PROFILE = "home-office"
 GROUP = "home-office"
 DEFAULT_VERSION = "heuristic-v1"          # khớp models.DEFAULT_MODEL
-IMAGE_REPO = "home-office-lambda"          # image của Lambda batch (deploy/batch)
+IMAGE_REPO = "home-office-lambda"          # kho ECR chứa image của Lambda batch ($Repo trong deploy/common.ps1)
 IMAGE_TAG = "v1"
 MAX_VALUE_LEN = 256                        # giới hạn giá trị CustomerMetadataProperties
 MAX_PAIRS = 50                             # giới hạn số cặp
@@ -44,7 +44,7 @@ def _account(sts) -> str:
 
 
 def bucket_name(account: str) -> str:
-    return f"home-office-lambda-sg-{account}"      # cùng tên với deploy/common.ps1
+    return f"home-office-lambda-sg-{account}"      # cùng tên $Bucket trong deploy/common.ps1
 
 
 def build_metadata(version: str, params: dict, bucket: str, commit: str, created_at: str) -> dict:
@@ -55,7 +55,7 @@ def build_metadata(version: str, params: dict, bucket: str, commit: str, created
         meta[f"p_{k}"] = str(v)
     meta = {k: str(v)[:MAX_VALUE_LEN] for k, v in meta.items()}
     if len(meta) > MAX_PAIRS:
-        raise ValueError(f"metadata co {len(meta)} cap, toi da {MAX_PAIRS}")
+        raise ValueError(f"metadata có {len(meta)} cặp, tối đa {MAX_PAIRS}")
     return meta
 
 
@@ -69,11 +69,11 @@ def _git_commit() -> str:
 def _ensure_group(sm) -> None:
     try:
         sm.describe_model_package_group(ModelPackageGroupName=GROUP)
-        print(f"group {GROUP}: da co")
+        print(f"group {GROUP}: đã có")
     except sm.exceptions.ClientError:
         sm.create_model_package_group(ModelPackageGroupName=GROUP,
-                                      ModelPackageGroupDescription="Home/Office GeoLife: cac version model (heuristic-v1, dbscan-v2)")
-        print(f"group {GROUP}: da tao")
+                                      ModelPackageGroupDescription="Home/Office GeoLife: các version model (heuristic-v1, dbscan-v2)")
+        print(f"group {GROUP}: đã tạo")
 
 
 def _packages(sm) -> list[dict]:
@@ -94,7 +94,7 @@ def cmd_register(args) -> None:
     image = args.image or f"{account}.dkr.ecr.{REGION}.amazonaws.com/{IMAGE_REPO}:{IMAGE_TAG}"
     files = sorted(Path(args.params_dir).glob("*.json"))
     if not files:
-        sys.exit(f"Khong co {args.params_dir}/*.json. Chay: python -m src.params write")
+        sys.exit(f"Không có {args.params_dir}/*.json. Chạy: python -m src.params write")
     _ensure_group(sm)
     have = {p["meta"].get("model_version") for p in _packages(sm)}
     commit = args.commit or _git_commit()
@@ -102,14 +102,14 @@ def cmd_register(args) -> None:
     for f in files:
         version = f.stem
         if version in have:
-            print(f"{version}: da co trong registry, bo qua")
+            print(f"{version}: đã có trong registry, bỏ qua")
             continue
         try:
             s3.head_object(Bucket=bucket, Key=f"models/{version}/params.json")
         except Exception:
-            print(f"canh bao: chua thay s3://{bucket}/models/{version}/params.json (chay deploy\\data\\upload_params.ps1)")
+            print(f"Cảnh báo: chưa thấy s3://{bucket}/models/{version}/params.json (chạy deploy\\data\\upload_params.ps1)")
         params = json.loads(f.read_text(encoding="utf-8"))
-        kw = dict(ModelPackageGroupName=GROUP, ModelPackageDescription=f"{version}: {params.get('stay_method', '')} stay, gom dia diem",
+        kw = dict(ModelPackageGroupName=GROUP, ModelPackageDescription=f"{version}: {params.get('stay_method', '')} stay, gom địa điểm",
                   CustomerMetadataProperties=build_metadata(version, params, bucket, commit, now),
                   MetadataProperties={"CommitId": commit},
                   ModelApprovalStatus="Approved" if version == args.default else "PendingManualApproval")
@@ -117,7 +117,7 @@ def cmd_register(args) -> None:
             kw["InferenceSpecification"] = {"Containers": [{"Image": image}], "SupportedContentTypes": ["application/json"],
                                             "SupportedResponseMIMETypes": ["application/json"]}
         resp = sm.create_model_package(**kw)
-        print(f"{version}: da dang ky {resp['ModelPackageArn']} ({kw['ModelApprovalStatus']})")
+        print(f"{version}: đã đăng ký {resp['ModelPackageArn']} ({kw['ModelApprovalStatus']})")
 
 
 def cmd_list(args) -> None:
@@ -136,14 +136,14 @@ def cmd_set_default(args) -> None:
             sm.update_model_package(ModelPackageArn=p["arn"], ModelApprovalStatus=want)
             print(f"{p['meta'].get('model_version')}: {p['status']} -> {want}")
     if not found:
-        sys.exit(f"Khong co version {args.version} trong registry")
+        sys.exit(f"Không có version {args.version} trong registry")
 
 
 def cmd_default(args) -> None:
     sm, _, _ = _clients()
     approved = [p for p in _packages(sm) if p["status"] == "Approved"]
     if len(approved) != 1:
-        sys.exit(f"Can dung 1 version Approved, dang co {len(approved)}")
+        sys.exit(f"Cần đúng 1 version Approved, đang có {len(approved)}")
     m = approved[0]["meta"]
     print(json.dumps({"default": m.get("model_version"), "params_uri": m.get("params_uri"), "results_prefix": m.get("results_prefix")}))
 
@@ -153,10 +153,10 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("register")
     r.add_argument("--params-dir", default="params")
-    r.add_argument("--default", default=DEFAULT_VERSION, help="version dat Approved (con lai PendingManualApproval)")
-    r.add_argument("--image", help="URI image ECR (mac dinh: image cua Lambda batch)")
-    r.add_argument("--commit", help="git commit (mac dinh: git rev-parse --short HEAD)")
-    r.add_argument("--no-inference-spec", action="store_true", help="khong khai bao InferenceSpecification/image")
+    r.add_argument("--default", default=DEFAULT_VERSION, help="version đặt Approved (còn lại PendingManualApproval)")
+    r.add_argument("--image", help="URI image ECR (mặc định: image của Lambda batch)")
+    r.add_argument("--commit", help="git commit (mặc định: git rev-parse --short HEAD)")
+    r.add_argument("--no-inference-spec", action="store_true", help="không khai báo InferenceSpecification / image")
     r.set_defaults(fn=cmd_register)
     sub.add_parser("list").set_defaults(fn=cmd_list)
     s = sub.add_parser("set-default"); s.add_argument("version"); s.set_defaults(fn=cmd_set_default)

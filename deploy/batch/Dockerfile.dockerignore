@@ -1,6 +1,8 @@
+# Chỉ đưa vào build context những gì Dockerfile cần (không đưa data/ vài GB).
 *
 !src/
 !deploy/batch/
 src/eda/
+deploy/batch/runs/
 **/__pycache__/
 **/*.pyc

@@ -1,4 +1,4 @@
-# Chỉ gói pipeline cần (boto3 có sẵn trong image Lambda)
+# Thư viện cho pipeline trong Lambda batch (boto3 có sẵn trong image Lambda).
 numpy>=1.24
 pandas>=2.0
 pyarrow>=14

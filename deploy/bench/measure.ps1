@@ -1,9 +1,10 @@
-# Measure heuristic-v1 and dbscan-v2 for every user (ascending size) at 2048 MB. Results go to deploy/bench/results/results.csv.
-. "$PSScriptRoot\..\common.ps1"
+﻿# Đo heuristic-v1 và dbscan-v2 cho các user trong $Users (nhỏ đến lớn) ở 2048 MB. Không ghi kết quả home/office.
+# Cách chạy (từ thư mục Home_Office):  .\deploy\bench\measure.ps1      Kết quả: deploy\bench\results\results.csv
+. "$PSScriptRoot\bench_common.ps1"
 foreach ($model in "heuristic-v1", "dbscan-v2") {
-    Write-Host "=== $model (new container = cold start on the first call) ==="
+    Write-Step "$model (container mới: lần gọi đầu là cold start)"
     Set-Cold 2048 ("{0}-{1}" -f $model, (Get-Date -Format "HHmmss"))
     foreach ($u in $Users) { Invoke-Fn $u $model }
-    Invoke-Fn $Users[-1] $model
+    Invoke-Fn $Users[-1] $model          # gọi lại user lớn nhất khi container đã ấm
 }
-Write-Host "Done. Results: $Csv"
+Write-Host "Xong. Kết quả: $Csv"

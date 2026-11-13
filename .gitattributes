@@ -1,0 +1,2 @@
+# Script bash chạy trong CloudShell phải giữ xuống dòng kiểu Linux
+*.sh text eol=lf

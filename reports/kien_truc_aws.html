@@ -347,6 +347,22 @@ footer { font-size: 13px; color: var(--muted); }
   </section>
 
   <section>
+    <h2>Đo cold start của API (13/11/2026)</h2>
+    <p style="margin-bottom:14px">Lambda tra cứu đã nghỉ hơn 1 giờ trước lần đo. Gọi API 8 lần liên tiếp từ máy dev ở Việt Nam; số phía máy chủ lấy từ dòng REPORT trong CloudWatch Logs.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Lần gọi</th><th>Khởi động (Init)</th><th>Xử lý (Duration)</th><th>Máy dev chờ tổng cộng</th></tr></thead>
+        <tbody>
+          <tr><td>Lần đầu (cold)</td><td class="num">496 ms</td><td class="num">139 ms</td><td class="num">1 489 ms</td></tr>
+          <tr><td>Các lần sau, tra user</td><td class="num">0</td><td class="num">24–36 ms</td><td class="num">155–196 ms</td></tr>
+          <tr><td>Các lần sau, /health</td><td class="num">0</td><td class="num">1,5 ms</td><td class="num">124 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px">Cold start làm phía máy chủ chậm thêm khoảng 0,6 giây (khởi động Python và thư viện AWS, lần đọc S3 đầu tiên). Phần còn lại của 1,5 giây ở lần đầu chủ yếu là máy dev mở kết nối HTTPS mới. Khi đã ấm, mỗi lần tra cứu chỉ tốn khoảng 30 ms trên máy chủ, còn lại là đường mạng từ Việt Nam tới Singapore. Lịch EventBridge 5 phút giữ cho một bản Lambda luôn ấm, nên bỏ được 0,6 giây này cho người gọi đầu tiên, gần như miễn phí. Nhiều request đồng thời vượt quá một bản vẫn có thể gặp cold start.</p>
+  </section>
+
+  <section>
     <h2>Cần chốt với mentor</h2>
     <div class="questions">
       <div class="qrow">

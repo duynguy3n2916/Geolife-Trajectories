@@ -1,0 +1,6 @@
+*
+!src/
+!deploy/batch/
+src/eda/
+**/__pycache__/
+**/*.pyc

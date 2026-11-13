@@ -75,7 +75,7 @@ Tập test chỉ chạy **một lần** (D19): `.\deploy\batch\run_batch.ps1 -Gr
 | `lookup\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, công tắc đăng nhập `AUTH_MODE`. |
 | `lookup\test.ps1` | Gọi thử API và so mã HTTP với mong đợi. |
 | `registry\register_models.py` | Đăng ký 2 version vào SageMaker Model Registry (chưa chạy). |
-| `bench\*` | Thử nghiệm đo thời gian và RAM ngày 12/11. Không thuộc quy trình. |
+| `bench\results\` | Kết quả thử nghiệm đo thời gian và RAM ngày 12/11 (chỉ trên máy, không có trong git; script đo đã xoá, xem lịch sử git nếu cần đo lại). |
 
 Hàm trong `src\params.py` (dùng bởi Lambda batch): `load` (đọc params từ máy hoặc S3), `validate`, `to_kwargs` (chia params cho từng bước), `run_pipeline` (stay point, gom địa điểm, bỏ phiếu), `build` / `check` / CLI `write`, `check` (đối chiếu file với code).
 

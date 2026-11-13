@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kiến trúc Home/Office trên AWS</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; the architecture diagram is the hero, then flows, components, boundaries, questions for the mentor. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --fg: #15202b;
+  --muted: #5b6876;
+  --line: #d3dae2;
+  --accent: #1d5cc0;      /* xử lý, API */
+  --store: #2c7a57;       /* dữ liệu, chỉ đọc */
+  --warn: #a8640a;        /* lỗi, hàng đợi */
+  --accent-soft: #e6eefb;
+  --store-soft: #e5f3ec;
+  --warn-soft: #fbf0df;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1319; --surface: #161e27; --fg: #e5ecf3; --muted: #94a2b1; --line: #2a3643;
+    --accent: #78aaff; --store: #5fc79b; --warn: #eea64a;
+    --accent-soft: #1a2a44; --store-soft: #15302a; --warn-soft: #36290f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1319; --surface: #161e27; --fg: #e5ecf3; --muted: #94a2b1; --line: #2a3643;
+  --accent: #78aaff; --store: #5fc79b; --warn: #eea64a;
+  --accent-soft: #1a2a44; --store-soft: #15302a; --warn-soft: #36290f;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 48px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.2; margin: 0; font-weight: 700; text-wrap: balance; }
+h2 { font-size: 21px; margin: 0 0 14px; font-weight: 600; text-wrap: balance; }
+h3 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); font-size: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.chip { font-family: var(--font-mono); font-size: 12px; padding: 3px 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+code, .mono { font-family: var(--font-mono); font-size: .88em; }
+code { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+/* diagram */
+.figure { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.scroll { overflow-x: auto; }
+svg.arch { display: block; width: 100%; min-width: 860px; height: auto; }
+svg .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+svg .tf { stroke: var(--accent); stroke-width: 2; fill: var(--accent-soft); }
+svg .ro { stroke: var(--store); stroke-width: 2; fill: var(--store-soft); }
+svg .plan { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 5; fill: var(--surface); }
+svg .arr-plan { stroke: var(--accent); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+svg .head-plan { fill: var(--accent); }
+svg .q  { stroke: var(--warn); stroke-width: 2; fill: var(--warn-soft); }
+svg .ext { stroke: var(--muted); stroke-width: 1.5; fill: var(--surface); }
+svg text { fill: var(--fg); font-family: var(--font-body); font-size: 14px; }
+svg .t-title { font-weight: 600; font-size: 15px; }
+svg .t-sub { fill: var(--muted); font-size: 12.5px; }
+svg .t-mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg); }
+svg .t-lbl { fill: var(--muted); font-size: 12px; }
+svg .t-badge { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; fill: var(--accent); }
+svg .t-badge-ro { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; fill: var(--store); }
+svg .arr { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+svg .arr-err { stroke: var(--warn); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+svg .head { fill: var(--muted); }
+svg .head-err { fill: var(--warn); }
+svg .lane { fill: none; stroke: var(--line); stroke-dasharray: 2 6; }
+svg .lane-lbl { fill: var(--muted); font-size: 11px; letter-spacing: .08em; font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 22px; height: 14px; border-radius: 3px; display: inline-block; }
+.sw.tf { background: var(--accent-soft); border: 2px solid var(--accent); }
+.sw.ro { background: var(--store-soft); border: 2px solid var(--store); }
+.sw.plan { background: var(--surface); border: 2px dashed var(--accent); }
+.sw.q { background: var(--warn-soft); border: 2px solid var(--warn); }
+.sw.ext { background: var(--surface); border: 1.5px solid var(--muted); }
+
+/* flows */
+.flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.flow { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.flow .tag { font-size: 12px; color: var(--muted); }
+ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+ol.steps li::marker { color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+
+/* tables */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+td.num { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.tf { background: var(--accent-soft); color: var(--accent); }
+.pill.ro { background: var(--store-soft); color: var(--store); }
+.pill.plan { background: var(--surface); color: var(--accent); border: 1px dashed var(--accent); }
+.pill.ext { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+
+.questions { display: grid; gap: 12px; }
+.qrow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; }
+.qrow .rec { font-size: 13.5px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Đề xuất kiến trúc · để chốt với mentor</div>
+    <h1>Kiến trúc Home/Office trên AWS</h1>
+    <p class="lede">Từ GPS thô của GeoLife, hệ thống suy ra vị trí nhà và nơi làm việc cho từng user. Phần tính toán chạy theo lô trên Lambda, còn API chỉ đọc kết quả đã tính sẵn, nên trả lời nhanh và rẻ.</p>
+    <div class="meta">
+      <span class="chip">ap-southeast-1 (Singapore)</span>
+      <span class="chip">1 tài khoản AWS riêng</span>
+      <span class="chip">model: heuristic-v1, dbscan-v2</span>
+    </div>
+  </header>
+
+  <section class="figure" aria-label="Sơ đồ kiến trúc">
+    <div class="scroll">
+      <svg class="arch" viewBox="0 0 1040 600" role="img" aria-labelledby="arch-t">
+        <title id="arch-t">Sơ đồ (Model Registry là phần dự kiến, chỉ lưu con trỏ tới ngưỡng và kết quả trên S3): máy dev đưa dữ liệu lên S3 và gọi Lambda batch; Lambda batch đọc GPS và params, ghi kết quả vào S3; app gọi API Gateway, API gọi Lambda tra cứu đọc kết quả từ S3.</title>
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="ahe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-err" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-plan" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+
+        <!-- lanes -->
+        <line class="lane" x1="10" y1="420" x2="1030" y2="420"/>
+        <text class="lane-lbl" x="1030" y="30" text-anchor="end">LUỒNG BATCH · OFFLINE</text>
+        <text class="lane-lbl" x="1030" y="444" text-anchor="end">LUỒNG API · ONLINE</text>
+
+        <!-- Dev machine -->
+        <rect class="ext" x="20" y="40" width="200" height="340" rx="8"/>
+        <text class="t-title" x="36" y="66">Máy dev</text>
+        <text class="t-sub" x="36" y="84">PowerShell + AWS CLI</text>
+        <text x="36" y="118">Đưa dữ liệu lên S3</text>
+        <text x="36" y="142">Build image</text>
+        <text class="t-sub" x="36" y="160">(trong CloudShell)</text>
+        <text x="36" y="186">Gọi chạy batch</text>
+        <text x="36" y="210">Triển khai hạ tầng</text>
+        <text class="t-sub" x="36" y="228">(hạ tầng viết dạng code)</text>
+        <text x="36" y="256">Đăng ký version model</text>
+
+        <!-- ECR -->
+        <rect class="ro" x="285" y="40" width="185" height="86" rx="8"/>
+        <text class="t-badge-ro" x="299" y="60">LƯU TRỮ</text>
+        <text class="t-title" x="299" y="82">ECR</text>
+        <text class="t-sub" x="299" y="104">kho image của Lambda batch</text>
+
+        <!-- Lambda batch -->
+        <rect class="tf" x="530" y="40" width="240" height="118" rx="8"/>
+        <text class="t-badge" x="546" y="60">XỬ LÝ</text>
+        <text class="t-title" x="546" y="82">Lambda batch</text>
+        <text class="t-sub" x="546" y="102">chạy model home / office</text>
+        <text class="t-sub" x="546" y="122">image · 2048 MB · tối đa 15 phút</text>
+        <text class="t-sub" x="546" y="140">1 lần gọi = 1 user × 1 model</text>
+
+
+        <!-- S3 -->
+        <rect class="ro" x="530" y="215" width="240" height="185" rx="8"/>
+        <text class="t-badge-ro" x="546" y="235">LƯU TRỮ</text>
+        <text class="t-title" x="546" y="257">S3 bucket</text>
+        <text x="546" y="290">GPS thô</text>
+        <text x="546" y="320">Ngưỡng của từng model</text>
+        <text x="546" y="350">Kết quả home / office</text>
+        <text class="t-sub" x="546" y="368">theo từng user, từng model</text>
+
+        <!-- App -->
+        <rect class="ext" x="20" y="470" width="200" height="86" rx="8"/>
+        <text class="t-title" x="36" y="500">App / client</text>
+        <text class="t-sub" x="36" y="520">gọi HTTPS GET</text>
+        <text class="t-sub" x="36" y="538">(sau này: JWT)</text>
+
+        <!-- API Gateway -->
+        <rect class="tf" x="285" y="460" width="185" height="106" rx="8"/>
+        <text class="t-badge" x="299" y="480">API</text>
+        <text class="t-title" x="299" y="502">API Gateway</text>
+        <text class="t-sub" x="299" y="522">HTTP API, 2 route</text>
+        <text class="t-sub" x="299" y="540">20 req/s, dồn tối đa 50</text>
+
+        <!-- Lambda lookup -->
+        <rect class="tf" x="530" y="460" width="240" height="106" rx="8"/>
+        <text class="t-badge" x="546" y="480">XỬ LÝ</text>
+        <text class="t-title" x="546" y="502">Lambda tra cứu</text>
+        <text class="t-sub" x="546" y="522">trả kết quả đã tính sẵn</text>
+        <text class="t-sub" x="546" y="542">zip · Python 3.12 · 256 MB · 10 s</text>
+
+        <!-- EventBridge -->
+        <rect class="tf" x="830" y="460" width="190" height="106" rx="8"/>
+        <text class="t-badge" x="846" y="480">LỊCH</text>
+        <text class="t-title" x="846" y="502">EventBridge</text>
+        <text class="t-sub" x="846" y="522">lịch mỗi 5 phút</text>
+        <text class="t-sub" x="846" y="540">giữ Lambda tra cứu "ấm"</text>
+
+        <!-- Model Registry (dự kiến) -->
+        <rect class="plan" x="285" y="312" width="185" height="96" rx="8"/>
+        <text class="t-badge" x="299" y="332">DỰ KIẾN</text>
+        <text class="t-title" x="299" y="354">Model Registry</text>
+        <text class="t-sub" x="299" y="374">SageMaker · 2 version</text>
+        <text class="t-sub" x="299" y="392">duyệt version mặc định</text>
+
+        <!-- IAM note -->
+        <rect class="tf" x="830" y="215" width="190" height="185" rx="8"/>
+        <text class="t-badge" x="846" y="235">PHÂN QUYỀN</text>
+        <text class="t-title" x="846" y="257">IAM role</text>
+        <text class="t-sub" x="846" y="281">batch: đọc geolife/,</text>
+        <text class="t-sub" x="846" y="299">models/; ghi results/</text>
+        <text class="t-sub" x="846" y="345">tra cứu: chỉ đọc</text>
+        <text class="t-sub" x="846" y="363">results/</text>
+        <text class="t-sub" x="846" y="387">+ ghi log CloudWatch</text>
+
+        <!-- arrows -->
+        <path class="arr" d="M220 70 H285" marker-end="url(#ah)"/>
+        <text class="t-lbl" x="226" y="62">image</text>
+
+        <path class="arr" d="M470 83 H530" marker-end="url(#ah)"/>
+
+        <path class="arr" d="M220 180 H500 V140 H530" marker-end="url(#ah)"/>
+        <text class="t-lbl" x="300" y="172">gọi (đồng bộ hoặc async)</text>
+
+        <path class="arr" d="M220 280 H530" marker-end="url(#ah)"/>
+        <text class="t-lbl" x="300" y="272">upload GPS, params</text>
+
+        <path class="arr" d="M650 158 V215" marker-end="url(#ah)"/>
+        <text class="t-lbl" x="660" y="192">đọc GPS, params · ghi kết quả</text>
+
+
+        <path class="arr" d="M220 513 H285" marker-end="url(#ah)"/>
+        <path class="arr" d="M470 513 H530" marker-end="url(#ah)"/>
+
+        <path class="arr" d="M650 460 V400" marker-end="url(#ah)"/>
+        <text class="t-lbl" x="660" y="436">đọc results/</text>
+
+        <line class="arr" x1="770" y1="300" x2="830" y2="300" stroke-dasharray="2 4"/>
+
+        <path class="arr" d="M830 513 H770" marker-end="url(#ah)"/>
+
+        <path class="arr-plan" d="M220 360 H285" marker-end="url(#ahp)"/>
+        <text class="t-lbl" x="226" y="352">đăng ký</text>
+        <path class="arr-plan" d="M470 330 H530" marker-end="url(#ahp)"/>
+        <text class="t-lbl" x="476" y="322">trỏ tới</text>
+        <text class="t-lbl" x="776" y="505">ping</text>
+      </svg>
+    </div>
+  </section>
+
+  <section>
+    <h2>Hai luồng chính</h2>
+    <div class="flows">
+      <div class="flow">
+        <h3>Batch: tính kết quả (offline)</h3>
+        <div class="tag">Chạy khi có dữ liệu mới hoặc đổi ngưỡng</div>
+        <ol class="steps">
+          <li>Đưa GPS thô và ngưỡng của từng model lên S3.</li>
+          <li>Từ máy dev, gọi Lambda batch, mỗi lần một cặp (user, model). Có thể gọi song song hoặc bất đồng bộ.</li>
+          <li>Lambda đọc ngưỡng, tải GPS của user, chạy pipeline: lọc, tìm stay point, gom địa điểm, bỏ phiếu home/office.</li>
+          <li>Ghi kết quả của user đó lên S3.</li>
+        </ol>
+      </div>
+      <div class="flow">
+        <h3>API: tra cứu (online)</h3>
+        <div class="tag">Không chạy model, chỉ đọc file đã tính</div>
+        <ol class="steps">
+          <li>App gọi <code>GET /v1/users/{user_id}/home-office</code>, có thể kèm <code>?model_version=dbscan-v2</code>.</li>
+          <li>API Gateway giới hạn 20 request/giây rồi chuyển cho Lambda tra cứu.</li>
+          <li>Lambda kiểm tra <code>user_id</code> và version, đọc file kết quả trên S3. Nếu không truyền version thì dùng version mặc định (cấu hình trên S3, đổi được mà không cần deploy lại).</li>
+          <li>Trả JSON gồm toạ độ home/office, độ tin cậy, số phiếu, kèm header <code>X-Model-Version</code>.</li>
+          <li>Song song, EventBridge gọi Lambda tra cứu mỗi 5 phút (như một request <code>/health</code>) để Lambda không bị tắt, nên người dùng không gặp lần gọi đầu bị chậm.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Thành phần và cấu hình</h2>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Thành phần</th><th>Cấu hình</th><th>Vì sao chọn</th><th>Trạng thái</th></tr></thead>
+        <tbody>
+          <tr><td>S3 bucket</td><td class="num">chặn public · mã hoá AES256</td><td>Lưu GPS, params, kết quả. Rẻ, bền, Lambda đọc trực tiếp.</td><td><span class="pill tf">đang chạy</span></td></tr>
+          <tr><td>ECR</td><td class="num">1 image, build trong CloudShell</td><td>Image cho Lambda batch, vì cần thư viện nặng (numpy, pandas, pyarrow, timezonefinder) nên đóng gói dạng image thay cho zip.</td><td><span class="pill tf">đang chạy</span></td></tr>
+          <tr><td>Lambda batch</td><td class="num">2048 MB · 900 s</td><td>Chạy theo lô, chỉ trả tiền khi chạy. Đã đo ngày 12/11 với user lớn nhất (khoảng 2,16 triệu điểm GPS).</td><td><span class="pill tf">đang chạy</span></td></tr>
+          <tr><td>Lambda tra cứu</td><td class="num">256 MB · 10 s · zip</td><td>Chỉ đọc một file JSON, nên cấu hình nhỏ là đủ và sửa code nhanh.</td><td><span class="pill tf">đang chạy</span></td></tr>
+          <tr><td>API Gateway</td><td class="num">HTTP API · 20/50 req/s</td><td>Rẻ hơn REST API. Có throttle để tránh bị gọi tràn.</td><td><span class="pill tf">đang chạy</span></td></tr>
+          <tr><td>EventBridge</td><td class="num">rate(5 minutes)</td><td>Giữ Lambda tra cứu luôn sẵn sàng. Khoảng 8.640 lần gọi mỗi tháng, nằm trong mức miễn phí.</td><td><span class="pill tf">đang chạy</span></td></tr>
+          <tr><td>Model Registry</td><td class="num">SageMaker · 2 version</td><td>Ghi lại từng version model (heuristic-v1, dbscan-v2), trỏ tới ngưỡng và kết quả trên S3, đánh dấu version được duyệt. Chỉ phía batch dùng, API không đọc registry.</td><td><span class="pill plan">dự kiến</span></td></tr>
+          <tr><td>IAM role ×2</td><td class="num">quyền tối thiểu</td><td>Mỗi Lambda chỉ được chạm đúng thư mục S3 nó cần.</td><td><span class="pill tf">đang chạy</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>API</h2>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Route</th><th>Kết quả</th></tr></thead>
+        <tbody>
+          <tr><td class="num">GET /health</td><td><span class="mono">200</span>: trạng thái và version mặc định</td></tr>
+          <tr><td class="num">GET /v1/users/{user_id}/home-office</td><td><span class="mono">200</span>: home, office, độ tin cậy · <span class="mono">404</span>: user chưa có kết quả · <span class="mono">422</span>: version không hợp lệ</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="two">
+    <div class="card">
+      <h3>Quản lý version model</h3>
+      <ul class="plain">
+        <li>Mỗi version model là một bộ ngưỡng riêng trên S3, kết quả của version nào nằm riêng thư mục của version đó.</li>
+        <li>API chọn version qua tham số <code>model_version</code>, mặc định theo một cấu hình trên S3.</li>
+        <li><strong>Dự kiến:</strong> SageMaker Model Registry ghi lại 2 version, kèm con trỏ tới ngưỡng và kết quả, và đánh dấu version được duyệt. Registry không lưu file, chỉ lưu con trỏ và metadata.</li>
+        <li>Lambda tra cứu không gọi registry, nên API vẫn nhanh và không phụ thuộc thêm dịch vụ.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Bảo mật và độ tin cậy</h3>
+      <ul class="plain">
+        <li>Bucket chặn toàn bộ truy cập công khai.</li>
+        <li>Mỗi Lambda chỉ có quyền S3 cho đúng thư mục nó cần.</li>
+        <li>API kiểm tra <code>user_id</code> bằng regex để chặn chèn đường dẫn vào key S3. Log không ghi toạ độ.</li>
+        <li>Đã có công tắc <code>AUTH_MODE=jwt</code> trong code, hiện đang tắt.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cần chốt với mentor</h2>
+    <div class="questions">
+      <div class="qrow">
+        <strong>Version model mặc định của API</strong>
+        <span class="rec">Hiện tại là heuristic-v1. Có chuyển sang dbscan-v2 không? Đổi bằng một lệnh, không cần deploy lại.</span>
+      </div>
+      <div class="qrow">
+        <strong>Bật xác thực JWT cho API</strong>
+        <span class="rec">Code đã sẵn sàng (<code>AUTH_MODE=jwt</code>), còn thiếu nguồn phát token (ví dụ Cognito). Có cần trong phạm vi đồ án không?</span>
+      </div>
+      <div class="qrow">
+        <strong>Đăng ký model vào SageMaker Model Registry</strong>
+        <span class="rec">Code đăng ký đã có nhưng chưa chạy. Có cần đưa vào đồ án để minh hoạ quản lý version model không, và version mặc định của API có nên lấy theo version được duyệt trong registry không?</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>Trạng thái ngày 13/11/2026: các thành phần ghi "đang chạy" đã hoạt động trên AWS, test API qua 5/5. Lịch EventBridge đã viết xong, chờ triển khai. Model Registry và các mục trong phần "Cần chốt" là đề xuất, chưa làm.</footer>
+</div>
+
+</html>

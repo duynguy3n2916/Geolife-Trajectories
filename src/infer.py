@@ -76,7 +76,7 @@ def _xy(places: pd.DataFrame, pid) -> tuple[float, float]:
     return round(float(r["lat"]), COORD_DECIMALS), round(float(r["lon"]), COORD_DECIMALS)
 
 
-def _location(places: pd.DataFrame, res: dict, kind: str):
+def location(places: pd.DataFrame, res: dict, kind: str):
     """Home hoặc office theo schema `Location`; None nếu chưa xác định."""
     pid = res.get(kind)
     if pid is None or (isinstance(pid, float) and np.isnan(pid)):
@@ -90,9 +90,10 @@ def _location(places: pd.DataFrame, res: dict, kind: str):
                            "stable": float(res[f"{p}_stable"]), "gps_share": float(res[f"{p}_gps"])}}
 
 
-def _place_rows(places: pd.DataFrame, home, office) -> list[dict]:
+def place_rows(places: pd.DataFrame, home, office, limit: int = MAX_PLACES) -> list[dict]:
+    """Các địa điểm theo schema `Place` (dùng chung cho POST /v1/infer và API GeoLife)."""
     out = []
-    for r in places.head(MAX_PLACES).itertuples():
+    for r in places.head(limit).itertuples():
         pid = int(r.place_id)
         lat, lon = _xy(places, pid)
         out.append({"place_id": pid, "lat": lat, "lon": lon, "total_hours": round(float(r.total_hours), 2),
@@ -128,6 +129,6 @@ def infer(points: pd.DataFrame, model_version: str | None = None, user: str = "u
     flags = [f for f in str(res.get("flags") or "").split(";") if f]
     if len(summary["timezones"]) > 1:
         flags.append("multi_timezone")
-    home, office = _location(places, res, "home"), _location(places, res, "office")
+    home, office = location(places, res, "home"), location(places, res, "office")
     return base | {"home": home, "office": office, "flags": flags,
-                   "places": _place_rows(places, home and home["place_id"], office and office["place_id"])}
+                   "places": place_rows(places, home and home["place_id"], office and office["place_id"])}

@@ -27,6 +27,8 @@ class Model:
     method: str                              # tên cách gom, khớp ModelInfo.method trong api/openapi.yaml
     places_for_user: Callable                # (stays, user) -> (bảng địa điểm, bảng stay kèm place_id)
     params: dict = field(default_factory=dict)
+    key: str = ""                            # hậu tố file kết quả: places_<key>, home_office_<key>_*.csv
+    created_at: str = ""                     # ngày chốt cấu hình của bản này (notes/decisions.md)
 
 
 def _shared_params() -> dict:
@@ -38,10 +40,12 @@ def _shared_params() -> dict:
 MODELS: dict[str, Model] = {
     "heuristic-v1": Model("heuristic-v1", "greedy_200m",
                           lambda stays, user: cluster_v1.places_for_user(stays, user),
-                          {**_shared_params(), "place_radius_m": cluster_v1.RADIUS_M}),
+                          {**_shared_params(), "place_radius_m": cluster_v1.RADIUS_M},
+                          key="v1", created_at="2026-11-07T00:00:00Z"),
     "dbscan-v2": Model("dbscan-v2", "dbscan",
                        lambda stays, user: cluster_v2.places_for_user(stays, user),
-                       {**_shared_params(), "eps_m": cluster_v2.EPS_M, "min_samples": cluster_v2.MIN_SAMPLES}),
+                       {**_shared_params(), "eps_m": cluster_v2.EPS_M, "min_samples": cluster_v2.MIN_SAMPLES},
+                       key="v2", created_at="2026-11-09T00:00:00Z"),
 }
 DEFAULT_MODEL = "heuristic-v1"
 
@@ -53,7 +57,12 @@ def get_model(version: str | None = None) -> Model:
     return MODELS[version]
 
 
-def describe() -> dict:
-    """Nội dung cho GET /v1/models (thiếu created_at và git_commit: do registry bổ sung)."""
-    return {"default": DEFAULT_MODEL,
-            "items": [{"model_version": m.version, "method": m.method, "params": m.params} for m in MODELS.values()]}
+def describe(git_commit: str | None = None) -> dict:
+    """Nội dung cho GET /v1/models. git_commit do nơi build (Docker, CI) truyền vào; không có thì bỏ trống."""
+    items = []
+    for m in MODELS.values():
+        item = {"model_version": m.version, "method": m.method, "created_at": m.created_at, "params": m.params}
+        if git_commit:
+            item["git_commit"] = git_commit
+        items.append(item)
+    return {"default": DEFAULT_MODEL, "items": items}

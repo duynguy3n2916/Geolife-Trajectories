@@ -229,7 +229,7 @@ def run(users, places_dir: Path = PLACES_DIR, workday_fn=None) -> pd.DataFrame:
     for u in users:
         stays = interim.read_df(Path(places_dir) / f"{u}_stays")
         if stays is not None:
-            rows.append(infer_user(stays, workday_fn))
+            rows.append(infer_user(stays, workday_fn) | {"user": u})     # user không có stay: infer_user trả user None
     return pd.DataFrame(rows)
 
 

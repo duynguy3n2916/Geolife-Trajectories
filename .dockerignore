@@ -1,0 +1,9 @@
+# Chỉ gửi vào image những gì API cần: requirements-api.txt, src/, api/
+*
+!requirements-api.txt
+!src/
+!api/
+src/eda/
+**/__pycache__/
+**/*.pyc
+api/store/*.tmp

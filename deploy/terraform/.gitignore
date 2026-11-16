@@ -8,3 +8,5 @@ build/
 # File plan lưu tạm
 *.tfplan
 crash.log
+# Giá trị riêng của máy bạn (email nhận báo động): không đưa lên git
+terraform.tfvars

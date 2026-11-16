@@ -47,6 +47,18 @@ Terraform in lại plan và hỏi; gõ `yes` mới thực hiện.
 | Ghi địa chỉ API cho `test.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\lookup\api_url.txt` |
 | Xem Terraform đang quản lý gì | `terraform state list` |
 
+## Báo động và ngân sách (`monitoring.tf`)
+
+3 alarm (Lambda tra cứu lỗi, Lambda batch lỗi, API nhiều lỗi 5xx) gửi email qua SNS, và ngân sách 5 USD/tháng.
+Email đặt trong file `terraform.tfvars` (không đưa lên git), Terraform tự đọc mỗi lần chạy:
+
+```powershell
+Set-Content -Encoding ascii terraform.tfvars 'alert_email = "email-cua-ban@gmail.com"'
+```
+
+Sau lần apply đầu, mở hộp thư, bấm **Confirm subscription** trong thư của AWS thì mới nhận được báo động.
+Xem trạng thái alarm: console CloudWatch → Alarms, hoặc `aws cloudwatch describe-alarms --alarm-name-prefix home-office --profile home-office --region ap-southeast-1`.
+
 ## Lần apply đầu tiên (import)
 
 `imports.tf` nhận về 17 tài nguyên đã tạo bằng script. Plan lần đầu phải là:

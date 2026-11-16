@@ -45,7 +45,8 @@ Mỗi bước tạo ra thứ mà bước sau cần.
 | 7 | `.\deploy\data\set_default_version.ps1 heuristic-v1` (lần đầu), rồi `.\deploy\lookup\test.ps1` | `results/_default.json` | API trả kết quả của bước 6 |
 
 Chạy thử trước khi chạy hết: `.\deploy\batch\run_batch.ps1 -OnlyUsers 153,128 -DryRun`.
-Tập test chỉ chạy **một lần** (D19): `.\deploy\batch\run_batch.ps1 -Group test` (script hỏi xác nhận).
+Batch trên AWS là để **phục vụ**, nên chạy cho mọi user (182), không chia validation / test và không bỏ user bị loại.
+Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong notebooks.
 
 ## Khi sửa một thứ thì làm lại từ bước nào
 

@@ -10,14 +10,14 @@
 #
 # Cách chạy (từ thư mục Home_Office):
 #   .\deploy\batch\run_batch.ps1 -OnlyUsers 153,128 -DryRun     thử 2 user, không ghi S3
-#   .\deploy\batch\run_batch.ps1                                115 user validation × 2 model
+#   .\deploy\batch\run_batch.ps1                                mọi user (182) × 2 model, để API phục vụ đủ
 #   .\deploy\batch\run_batch.ps1 -Async                         như trên, gọi bất đồng bộ
 #   .\deploy\batch\run_batch.ps1 -Model dbscan-v2               chỉ một model
-#   .\deploy\batch\run_batch.ps1 -Group test                    tập test: chỉ chạy MỘT lần (D19), script hỏi xác nhận
+# Đây là batch để PHỤC VỤ, nên không chia validation / test và không bỏ user bị loại: chia tập chỉ dùng
+# cho đánh giá trong notebooks (data\split\users.csv, D19). Danh sách user lấy từ thư mục GPS trên máy.
 # Log: deploy\batch\runs\run_<giờ>\runs.csv (mỗi lần gọi một dòng) và các file payload / phản hồi.
 param(
     [string[]]$Model = @("heuristic-v1", "dbscan-v2"),
-    [ValidateSet("validation", "test", "all")][string]$Group = "validation",
     [int]$Concurrency = 50,
     [string[]]$OnlyUsers,
     [switch]$DryRun,        # chạy pipeline nhưng không ghi S3
@@ -27,29 +27,28 @@ param(
 . "$PSScriptRoot\..\common.ps1"
 if ($Async) { $WriteEmpty = [switch]$true }
 
-# ---- Chọn user từ data\split\users.csv (bỏ user bị loại) ----
-$rows = Import-Csv "data/split/users.csv" | Where-Object { $_.excluded -ne "True" }
-if ($Group -eq "validation") { $rows = $rows | Where-Object { $_.group -eq "val" } }
-elseif ($Group -eq "test")   { $rows = $rows | Where-Object { $_.group -eq "test" } }
-$users = @($rows | ForEach-Object { $_.user })
+# ---- Chọn user: mọi thư mục user trong dữ liệu GPS trên máy (cùng nguồn với upload_data.ps1) ----
+$Root = "data\raw\geolife\Data"
+$size = @{}
+foreach ($d in Get-ChildItem $Root -Directory) {
+    $size[$d.Name] = @(Get-ChildItem (Join-Path $d.FullName "Trajectory") -Filter *.plt -ErrorAction SilentlyContinue).Count
+}
+$users = @($size.Keys | Sort-Object)
 if ($OnlyUsers) {
-    $want = $OnlyUsers | ForEach-Object { $_ -split "," } | Where-Object { $_ }
+    # PowerShell đọc 059 thành số 59: đưa về 3 chữ số cho khớp tên thư mục.
+    $want = $OnlyUsers | ForEach-Object { "$_" -split "," } | Where-Object { $_ } |
+        ForEach-Object { if ($_ -match '^\d+$') { "{0:D3}" -f [int]$_ } else { $_ } }
     $users = @($users | Where-Object { $want -contains $_ })
 }
-if (-not $users) { throw "Không có user nào khớp" }
-if ($Group -ne "validation" -and -not $DryRun) {
-    Write-Host "CẢNH BÁO: nhóm '$Group' có user TEST. Chạy tập test được tính là lần test duy nhất (D19)." -ForegroundColor Yellow
-    if ((Read-Host "Gõ YES để tiếp tục") -ne "YES") { return }
-}
+if (-not $users) { throw "Không có user nào khớp (kiểm tra thư mục $Root)" }
 
 # ---- Hàng đợi việc: user nhiều file chạy trước để việc dài bắt đầu sớm ----
-$size = @{}; foreach ($r in $rows) { $size[$r.user] = [int]$r.n_files }
 $users = @($users | Sort-Object { -$size[$_] })
 $queue = New-Object System.Collections.Generic.Queue[object]
 foreach ($m in $Model) { foreach ($u in $users) { $queue.Enqueue([pscustomobject]@{ User = $u; Model = $m; Try = 1 }) } }
 $total = $queue.Count
 $startUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss")
-Write-Host "Nhóm=$Group  user=$($users.Count)  model=$($Model -join ',')  lần gọi=$total  đồng thời=$Concurrency  dry_run=$DryRun  async=$Async"
+Write-Host "user=$($users.Count)  model=$($Model -join ',')  lần gọi=$total  đồng thời=$Concurrency  dry_run=$DryRun  async=$Async"
 
 $dir = "deploy/batch/runs/run_" + (Get-Date -Format "yyyyMMdd_HHmmss")
 New-Item -ItemType Directory -Force $dir | Out-Null
@@ -147,7 +146,7 @@ foreach ($m in $Model) {
     $counts[$m] = Get-NewResultCount $m
     Write-Host "results/$m/: $($counts[$m]) file được ghi trong lần chạy này (user không ra home/office không có file, trừ khi -WriteEmpty)"
 }
-$manifest = [ordered]@{ run_at = $startUtc + "Z"; group = $Group; users = $users.Count; models = $Model; async = [bool]$Async; written = $counts; failed = $failed }
+$manifest = [ordered]@{ run_at = $startUtc + "Z"; users = $users.Count; models = $Model; async = [bool]$Async; written = $counts; failed = $failed }
 $mf = Join-Path $PWD "$dir/manifest.json"
 [IO.File]::WriteAllText($mf, ($manifest | ConvertTo-Json -Compress))
 Aws s3 cp $mf "s3://$Bucket/results/_runs/$(Split-Path $dir -Leaf).json" --only-show-errors

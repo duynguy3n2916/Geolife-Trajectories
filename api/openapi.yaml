@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Home/Office Inference API
-  version: 0.4.0-cp2-draft
+  version: 1.0.0-cp2
   description: |
     Gợi ý **home** và **office** của một người dùng cho thanh tìm kiếm của app đặt xe.
 
@@ -39,6 +39,15 @@ info:
 
     **Lỗi.** Mọi lỗi trả `Error` với `code` cố định (ví dụ `user_not_found`).
 
+    **Triển khai trên AWS (CP2).** API Gateway HTTP API (2 route, giới hạn 20 request/giây, dồn tối đa 50) gọi
+    Lambda tra cứu; kết quả tính sẵn nằm trên S3, mỗi version một thư mục. Hạ tầng viết bằng Terraform (`deploy/terraform`).
+    Đã tính cho 182 user; 166 user có kết quả, 16 user không có stay hoặc không đủ đêm / ngày làm việc nên trả 404.
+    **Đăng nhập hiện đang tắt** (`AUTH_MODE=none`, API Gateway chưa gắn bộ kiểm tra JWT): mọi endpoint gọi được
+    không cần token, nên 401 và 403 chưa xảy ra. Thiết kế đăng nhập bên dưới là phần dự kiến.
+
+    Thay đổi so với 0.4.0-cp2-draft: điền địa chỉ AWS thật, bỏ server cục bộ (bản FastAPI đã chuyển vào `archive/`),
+    ghi rõ đăng nhập đang tắt, 404 cho người dùng không tìm ra home / office, 404 `not_found` cho đường dẫn lạ.
+
     Thay đổi so với 0.3.0-cp2-draft: thay API key `X-API-Key` bằng OAuth 2.0 (Google qua Cognito, token Bearer JWT),
     thêm kiểm tra người gọi chỉ đọc kết quả của chính mình (403 `forbidden`).
 
@@ -46,13 +55,8 @@ info:
     Bỏ `POST /v1/infer` (người dùng không tải GPS lên), `GET /v1/models` và 3 endpoint `/v1/geolife/...`
     (thay bằng `GET /v1/users/{user_id}/home-office`).
 servers:
-  - url: http://localhost:8000
-    description: Chạy cục bộ
-  - url: https://{host}
-    description: AWS (điền khi deploy ở CP2)
-    variables:
-      host:
-        default: api.example.com
+  - url: https://2ri5mspocd.execute-api.ap-southeast-1.amazonaws.com
+    description: AWS, vùng Singapore (API Gateway, stage $default)
 tags:
   - name: users
     description: Gợi ý home / office đã tính sẵn cho từng người dùng
@@ -64,7 +68,7 @@ paths:
   /health:
     get:
       tags: [meta]
-      summary: Kiểm tra dịch vụ còn chạy (dùng cho health check của load balancer)
+      summary: Kiểm tra dịch vụ còn chạy và version model mặc định đang dùng
       operationId: getHealth
       security: []
       responses:
@@ -89,8 +93,8 @@ paths:
       description: |
         Trả kết quả đã tính sẵn bởi batch. Mỗi mục có thể là `null` khi chưa xác định được; lý do nằm ở `flags`.
         Office trùng home: `office` là `null` và `flags` chứa `home_eq_office`.
-        Người dùng chưa có kết quả (ví dụ người dùng mới, chưa qua lần batch nào): 404 `user_not_found`,
-        app không hiện gợi ý.
+        Người dùng chưa có kết quả: 404 `user_not_found`, app không hiện gợi ý. Gồm người dùng mới chưa qua lần batch
+        nào, và người dùng mà batch không tìm ra cả home lẫn office (không có stay, hoặc không có đêm / ngày làm việc nào có phiếu).
       operationId: getUserHomeOffice
       parameters:
         - $ref: '#/components/parameters/UserId'
@@ -182,7 +186,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     UserNotFound:
-      description: Chưa có kết quả cho người dùng này (`user_not_found`)
+      description: Chưa có kết quả cho người dùng này (`user_not_found`). Đường dẫn không tồn tại trả `not_found`
       content:
         application/json:
           schema:

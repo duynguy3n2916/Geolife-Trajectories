@@ -3,7 +3,7 @@
 Registry chỉ lưu con trỏ và metadata (không lưu file): mỗi Model Package trỏ tới params.json và thư mục kết quả trên S3.
 Lambda tra cứu không gọi registry: `set-default` duyệt version trên registry và ghi luôn results/_default.json, Lambda đọc file đó.
 
-Chạy từ thư mục Home_Office (cần AWS CLI profile `home-office` đã đăng nhập và `pip install boto3`):
+Chạy từ thư mục Home_Office (cần AWS CLI profile `home-office` đã đăng nhập và `pip install boto3 "botocore[crt]"`; gói crt cần để đọc phiên đăng nhập của `aws login`):
     python deploy/registry/register_models.py register            # tạo group + 2 Model Package (bỏ qua version đã có)
     python deploy/registry/register_models.py list                # liệt kê version, trạng thái duyệt
     python deploy/registry/register_models.py set-default dbscan-v2   # version này Approved, các version khác PendingManualApproval

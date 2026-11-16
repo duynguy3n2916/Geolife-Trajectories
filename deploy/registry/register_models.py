@@ -1,7 +1,7 @@
 """Ghi hai version model vào SageMaker Model Registry (group `home-office`) và chọn version mặc định.
 
 Registry chỉ lưu con trỏ và metadata (không lưu file): mỗi Model Package trỏ tới params.json và thư mục kết quả trên S3.
-Lambda tra cứu không gọi registry; script deploy / batch gọi `default` để biết version nào đang được duyệt.
+Lambda tra cứu không gọi registry: `set-default` duyệt version trên registry và ghi luôn results/_default.json, Lambda đọc file đó.
 
 Chạy từ thư mục Home_Office (cần AWS CLI profile `home-office` đã đăng nhập và `pip install boto3`):
     python deploy/registry/register_models.py register            # tạo group + 2 Model Package (bỏ qua version đã có)
@@ -127,16 +127,23 @@ def cmd_list(args) -> None:
 
 
 def cmd_set_default(args) -> None:
-    sm, _, _ = _clients()
-    found = False
-    for p in _packages(sm):
+    """Duyệt (Approved) đúng một version trên registry, rồi ghi results/_default.json để API dùng version đó.
+
+    Lambda tra cứu không gọi registry (để nhanh và ít phụ thuộc); nó chỉ đọc _default.json, nhớ trong 60 giây.
+    """
+    sm, sts, s3 = _clients()
+    packages = _packages(sm)
+    if not any(p["meta"].get("model_version") == args.version for p in packages):
+        sys.exit(f"Không có version {args.version} trong registry")
+    for p in packages:
         want = "Approved" if p["meta"].get("model_version") == args.version else "PendingManualApproval"
-        found = found or want == "Approved"
         if p["status"] != want:
             sm.update_model_package(ModelPackageArn=p["arn"], ModelApprovalStatus=want)
             print(f"{p['meta'].get('model_version')}: {p['status']} -> {want}")
-    if not found:
-        sys.exit(f"Không có version {args.version} trong registry")
+    bucket = bucket_name(_account(sts))
+    s3.put_object(Bucket=bucket, Key="results/_default.json", ContentType="application/json",
+                  Body=json.dumps({"default_model_version": args.version}).encode())
+    print(f"Đã ghi s3://{bucket}/results/_default.json = {args.version} (API đổi theo sau tối đa 60 giây)")
 
 
 def cmd_default(args) -> None:

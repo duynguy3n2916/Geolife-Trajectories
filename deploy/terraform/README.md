@@ -59,6 +59,26 @@ Set-Content -Encoding ascii terraform.tfvars 'alert_email = "email-cua-ban@gmail
 Sau lần apply đầu, mở hộp thư, bấm **Confirm subscription** trong thư của AWS thì mới nhận được báo động.
 Xem trạng thái alarm: console CloudWatch → Alarms, hoặc `aws cloudwatch describe-alarms --alarm-name-prefix home-office --profile home-office --region ap-southeast-1`.
 
+## Canary cho Lambda tra cứu (`canary.tf`, `canary.auto.tfvars`)
+
+Alias `live` chọn bản Lambda nào phục vụ người dùng và chia traffic giữa bản cũ và bản mới nhất.
+Điều khiển bằng cách sửa `canary.auto.tfvars` rồi `terraform plan`, `terraform apply`.
+Sau mỗi bước, đo tỉ lệ thật (từ thư mục `Home_Office`): `.\deploy\lookup\canary_check.ps1 -N 200`.
+
+| Bước | `lookup_pinned_version` | `stable_version` | `canary_weight` | `lookup_simulate_error` | Kết quả mong đợi |
+|---|---|---|---|---|---|
+| 0. Bật alias (một lần) | `""` | `""` | `0` | `false` | tạo bản 1; 100% bản 1, model `heuristic-v1` |
+| 1. Canary 10% | `"dbscan-v2"` | `"1"` | `0.1` | `false` | tạo bản 2; khoảng 90% bản 1, 10% bản 2 (`dbscan-v2`) |
+| 2. Canary 50% | `"dbscan-v2"` | `"1"` | `0.5` | `false` | khoảng 50/50 |
+| 3. Chuyển hẳn | `"dbscan-v2"` | `""` | `0` | `false` | 100% bản 2 |
+| 4. Bản lỗi ở 10% | `"dbscan-v2"` | `"2"` | `0.1` | `true` | tạo bản 3 lỗi; khoảng 10% lỗi 500; alarm `home-office-lookup-errors` kêu sau vài phút |
+| 5. Rollback | `"dbscan-v2"` | `"2"` | `0` | `true` | 100% bản 2, 0 lỗi |
+| 6. Dọn sau demo | `""` | `""` | `0` | `false` | tạo bản mới theo registry; 100% bản đó |
+
+Số bản (1, 2, 3) là số thật Lambda cấp, xem bằng `terraform output lookup_latest_version`; nếu khác bảng thì dùng số thật.
+Blue-green là trường hợp đặc biệt: chuyển thẳng từ bước 0 sang bước 3, giữ bản cũ để quay lại tức thì.
+Sau khi chuyển hẳn sang `dbscan-v2`, nên chạy `python deploy/registry/register_models.py set-default dbscan-v2` để registry khớp.
+
 ## Lần apply đầu tiên (import)
 
 `imports.tf` nhận về 17 tài nguyên đã tạo bằng script. Plan lần đầu phải là:

@@ -9,6 +9,10 @@ Route:
 Biến môi trường:
     BUCKET (bắt buộc); VERSIONS (mặc định "heuristic-v1,dbscan-v2"); DEFAULT_VERSION (khi chưa có _default.json);
     AUTH_MODE = none (mặc định) | jwt: claim `sub` của token phải ứng với user_id theo SUB_MAP (JSON {"<sub>": "<user_id>"}).
+    PINNED_VERSION: nếu có, bản Lambda này luôn dùng version model đó làm mặc định (bỏ qua _default.json).
+        Dùng cho canary: bản cũ theo registry, bản mới ghim version mới; alias "live" chia traffic giữa hai bản.
+    SIMULATE_ERROR = 1: route tra cứu cố ý ném lỗi (chỉ để demo rollback canary; /health vẫn chạy).
+Mọi response có header X-Lambda-Version (số version Lambda đã trả lời) để đếm tỉ lệ canary.
 Lỗi trả JSON {"code", "message"} theo schema Error của api/openapi.yaml. Không ghi toạ độ vào log.
 """
 import json
@@ -26,11 +30,14 @@ FALLBACK_DEFAULT = os.environ.get("DEFAULT_VERSION", "heuristic-v1")
 AUTH_MODE = os.environ.get("AUTH_MODE", "none")
 SUB_MAP = json.loads(os.environ.get("SUB_MAP", "{}"))
 USER_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")          # chặn ký tự lạ để không ai chèn đường dẫn vào key S3
+PINNED_VERSION = os.environ.get("PINNED_VERSION") or None
+SIMULATE_ERROR = os.environ.get("SIMULATE_ERROR") == "1"
 _DEFAULT = {"v": None, "t": 0.0}
+_FN_VERSION = {"v": "$LATEST"}                           # số version Lambda của lần gọi hiện tại
 
 
 def _resp(status: int, body: dict, version: str | None = None) -> dict:
-    headers = {"Content-Type": "application/json", "Cache-Control": "no-store"}
+    headers = {"Content-Type": "application/json", "Cache-Control": "no-store", "X-Lambda-Version": _FN_VERSION["v"]}
     if version:
         headers["X-Model-Version"] = version
     return {"statusCode": status, "headers": headers, "body": json.dumps(body, ensure_ascii=False, allow_nan=False)}
@@ -51,7 +58,9 @@ def _get_json(key: str):
 
 
 def default_version() -> str:
-    """Version mặc định từ results/_default.json, đọc lại sau mỗi 60 giây."""
+    """Version mặc định: PINNED_VERSION nếu bản Lambda này được ghim, không thì results/_default.json (đọc lại sau 60 giây)."""
+    if PINNED_VERSION:
+        return PINNED_VERSION
     if _DEFAULT["v"] is None or time.time() - _DEFAULT["t"] > 60:
         try:
             d = _get_json("results/_default.json") or {}
@@ -78,11 +87,14 @@ def _caller_user(event):
 
 def lambda_handler(event, context):
     """Điểm vào: API Gateway gọi hàm này cho mỗi request."""
+    _FN_VERSION["v"] = getattr(context, "function_version", None) or "$LATEST"
     route = event.get("routeKey") or ""
     if route == "GET /health":
         return _resp(200, {"status": "ok", "default_model_version": default_version()})
     if route != "GET /v1/users/{user_id}/home-office":
         return _err(404, "not_found", "Không có đường dẫn này")
+    if SIMULATE_ERROR:
+        raise RuntimeError("Lỗi giả lập (SIMULATE_ERROR=1) để demo rollback canary")
 
     user = (event.get("pathParameters") or {}).get("user_id") or ""
     if not USER_RE.match(user):

@@ -186,8 +186,16 @@ resource "aws_lambda_function" "lookup" {
   memory_size      = var.lookup_memory_mb
   timeout          = var.lookup_timeout_s
 
+  # Mỗi lần đổi code hoặc cấu hình, Lambda ghi lại một bản cố định đánh số 1, 2, 3...
+  # Alias "live" (canary.tf) chọn bản nào phục vụ người dùng, và chia traffic khi chạy canary.
+  publish = true
+
   environment {
-    variables = { BUCKET = data.aws_s3_bucket.main.id }
+    variables = merge(
+      { BUCKET = data.aws_s3_bucket.main.id },
+      var.lookup_pinned_version != "" ? { PINNED_VERSION = var.lookup_pinned_version } : {},
+      var.lookup_simulate_error ? { SIMULATE_ERROR = "1" } : {},
+    )
   }
 
   depends_on = [aws_iam_role_policy_attachment.lookup_logs, aws_iam_role_policy.lookup_read]
@@ -203,12 +211,16 @@ resource "aws_apigatewayv2_api" "main" {
 }
 
 # Một integration (gọi Lambda, payload 2.0) dùng chung cho cả hai route.
+# Gọi alias "live" chứ không gọi thẳng function, để alias chia traffic khi canary (canary.tf).
 resource "aws_apigatewayv2_integration" "lookup" {
   api_id                 = aws_apigatewayv2_api.main.id
   integration_type       = "AWS_PROXY"
   integration_method     = "POST"
-  integration_uri        = aws_lambda_function.lookup.arn
+  integration_uri        = aws_lambda_alias.live.arn
   payload_format_version = "2.0"
+
+  # Quyền gọi alias phải có trước khi chuyển integration sang alias, để API không lỗi trong lúc đổi.
+  depends_on = [aws_lambda_permission.apigw_live]
 }
 
 resource "aws_apigatewayv2_route" "health" {

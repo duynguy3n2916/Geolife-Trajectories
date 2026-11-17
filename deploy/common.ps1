@@ -1,5 +1,5 @@
 ﻿# Cấu hình và hàm dùng chung cho mọi script trong deploy\.
-# Không chạy trực tiếp: các script khác nạp file này bằng  . "$PSScriptRoot\..\common.ps1"
+# Không chạy trực tiếp: các script khác nạp file này bằng  . "$PSScriptRoot\..\common.ps1"  (trong batch\: ..\deploy\common.ps1)
 # Mọi script phải chạy từ thư mục Home_Office (đường dẫn tương đối tính từ đó).
 
 # ---- Tài khoản và vùng ----

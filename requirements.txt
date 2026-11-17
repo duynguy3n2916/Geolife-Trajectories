@@ -1,4 +1,4 @@
-# Pipeline và notebook (Lambda batch dùng danh sách riêng: deploy/batch/requirements.txt)
+# Pipeline và notebook (Lambda batch dùng danh sách riêng: batch/requirements.txt)
 numpy>=1.24
 pandas>=2.0
 pyarrow>=14

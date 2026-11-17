@@ -1,15 +1,15 @@
 # Image của Lambda batch: Python 3.12 của AWS Lambda + thư viện + src/ + handler.py.
-# Build từ thư mục gốc dự án (Home_Office), không phải từ deploy/batch:
-#   docker build --platform linux/amd64 --provenance=false -f deploy/batch/Dockerfile -t home-office-lambda .
-# Thường không build tay: dùng deploy/batch/build_bundle.ps1 rồi deploy/batch/cloudshell_build.sh.
+# Build từ thư mục gốc dự án (Home_Office), không phải từ batch:
+#   docker build --platform linux/amd64 --provenance=false -f batch/Dockerfile -t home-office-lambda .
+# Thường không build tay: dùng batch/build_bundle.ps1 rồi batch/cloudshell_build.sh.
 FROM public.ecr.aws/lambda/python:3.12
 
 # Cài thư viện trước khi chép code: Docker giữ cache từng lớp, sửa code không phải cài lại thư viện.
-COPY deploy/batch/requirements.txt .
+COPY batch/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ${LAMBDA_TASK_ROOT}/src/
-COPY deploy/batch/handler.py ${LAMBDA_TASK_ROOT}/
+COPY batch/handler.py ${LAMBDA_TASK_ROOT}/
 
 # Lambda chạy bằng user không phải root: file chép từ thư mục Windows / OneDrive có thể chỉ chủ sở hữu đọc được.
 RUN chmod -R a+rX ${LAMBDA_TASK_ROOT}

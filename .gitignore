@@ -12,7 +12,7 @@ reports/_fig_slide/
 docs/
 
 # ---- deploy: log lần chạy, kết quả đo, gói tạm, địa chỉ API ----
-deploy/batch/runs/
+batch/runs/
 deploy/bench/
 api/api_url.txt
 *.tar.gz

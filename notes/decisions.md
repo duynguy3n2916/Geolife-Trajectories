@@ -99,7 +99,7 @@ Quy trình, từng file và lệnh: `deploy/README.md`, `deploy/terraform/README
 - **Hạn chế:** cold start khoảng 0,6 giây ở lần gọi đầu (D26); kết quả chỉ mới nhất tới lần chạy batch gần nhất.
 
 ### D22. Batch phục vụ chạy cho mọi user, không chia validation / test
-**Chốt 2026-11-16.** `deploy/batch/run_batch.ps1` lấy danh sách từ thư mục GPS (182 user), không bỏ 10 user bản sao. Chia tập (D17) và test một lần (D19) chỉ để đánh giá; phục vụ thì API phải trả cho mọi user. Không sửa ngưỡng sau khi thấy kết quả nhóm test, nên số test 09/11 vẫn giữ nguyên giá trị.
+**Chốt 2026-11-16.** `batch/run_batch.ps1` lấy danh sách từ thư mục GPS (182 user), không bỏ 10 user bản sao. Chia tập (D17) và test một lần (D19) chỉ để đánh giá; phục vụ thì API phải trả cho mọi user. Không sửa ngưỡng sau khi thấy kết quả nhóm test, nên số test 09/11 vẫn giữ nguyên giá trị.
 Kết quả 16/11: 364 lần gọi, 0 lỗi, mỗi version 166 user có kết quả; 16 user không có stay hoặc không đủ đêm / ngày làm việc nên không ghi file, API trả 404 `user_not_found`.
 
 ### D23. Hạ tầng bằng Terraform; dữ liệu và image để ngoài

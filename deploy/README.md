@@ -8,7 +8,8 @@ Chia việc:
 - **Hạ tầng** (2 Lambda, role, hàng đợi lỗi, API Gateway, alias canary, alarm, ngân sách): Terraform, trong `terraform\`
   (xem `terraform\README.md`).
   Đừng sửa hạ tầng bằng console hay AWS CLI: lần `terraform plan` sau sẽ thấy khác và đề nghị sửa ngược lại.
-- **Dữ liệu, image, chạy batch, thử API**: các script `.ps1` trong thư mục này.
+- **Dữ liệu**: `data\` trong thư mục này (đưa GPS, ngưỡng lên S3).
+- **Lambda batch** (code, image, chạy batch): thư mục `..\batch\`. **API** (code Lambda tra cứu, spec, script thử): thư mục `..\api\`.
 - **Version model**: SageMaker Model Registry, script `registry\register_models.py`.
 
 ## Kiến trúc
@@ -40,15 +41,15 @@ Mỗi bước tạo ra thứ mà bước sau cần.
 | 0 | `aws login --profile home-office --region ap-southeast-1` | phiên đăng nhập | mọi bước sau đều gọi AWS |
 | 1 | `.\deploy\data\upload_data.ps1` | bucket, GPS thô trên S3 | Lambda chỉ đọc dữ liệu từ S3; role cần tên bucket |
 | 2 | `python -m src.params write`, `python -m src.params check`, `.\deploy\data\upload_params.ps1` | `models/<version>/params.json` | Lambda batch đọc file này đầu tiên |
-| 3a | `.\deploy\batch\build_bundle.ps1` | kho ECR, gói mã nguồn trên S3, lệnh cho CloudShell | CloudShell cần gói này để build |
+| 3a | `.\batch\build_bundle.ps1` | kho ECR, gói mã nguồn trên S3, lệnh cho CloudShell | CloudShell cần gói này để build |
 | 3b | dán lệnh mà 3a in ra vào **CloudShell** | image `home-office-lambda:v1` trong ECR | Lambda kiểu image cần image có sẵn trong ECR |
 | 4 | trong `deploy\terraform`: `terraform plan`, rồi `terraform apply` | toàn bộ hạ tầng | cần image (3b) và bucket (1) |
 | 5 | trong `deploy\terraform`: `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` | `api\api_url.txt` | `test.ps1`, `canary_check.ps1` đọc địa chỉ API từ file này |
-| 6 | `.\deploy\batch\run_batch.ps1` | `results/<version>/<user>.json` | cần đủ dữ liệu, params, function, quyền ghi |
+| 6 | `.\batch\run_batch.ps1` | `results/<version>/<user>.json` | cần đủ dữ liệu, params, function, quyền ghi |
 | 7 | `python deploy/registry/register_models.py register`, rồi `set-default heuristic-v1` | 2 version trên registry, `results/_default.json` | API cần biết version mặc định |
 | 8 | `.\api\test.ps1` | | kiểm API trả đúng mã HTTP |
 
-Chạy thử trước khi chạy hết: `.\deploy\batch\run_batch.ps1 -OnlyUsers 153,128 -DryRun`.
+Chạy thử trước khi chạy hết: `.\batch\run_batch.ps1 -OnlyUsers 153,128 -DryRun`.
 Batch trên AWS là để **phục vụ**, nên chạy cho mọi user (182), không chia validation / test và không bỏ user bị loại.
 Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong notebooks.
 
@@ -57,7 +58,7 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | Sửa | Làm lại |
 |---|---|
 | ngưỡng (`params\*.json` hoặc hằng số trong `src\`) | 2 rồi 6 (không build lại image nếu chỉ đổi file params) |
-| `deploy\batch\handler.py` hoặc code trong `src\` | 3a, 3b, 4, 6 |
+| `..\batch\handler.py` hoặc code trong `src\` | 3a, 3b, 4, 6 |
 | `api\handler.py` | 4 (`terraform apply` tự nén lại code và tạo bản Lambda mới) |
 | thêm GPS | 1 rồi 6 (cho user có dữ liệu mới) |
 | đổi version mặc định của API | `python deploy/registry/register_models.py set-default dbscan-v2` |
@@ -72,12 +73,12 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | `common.ps1` | Cấu hình chung: vùng, profile, tên bucket, kho ECR, function batch, hàng đợi. Hàm `Aws` (gọi AWS CLI kèm vùng, profile), `Assert-Ok` (dừng khi lệnh lỗi), `Write-Step`. Mọi script `.ps1` nạp file này. |
 | `data\upload_data.ps1` | Bước 1: tạo bucket, chặn truy cập công khai, `aws s3 sync` file `.plt`, so số file máy và S3. |
 | `data\upload_params.ps1` | Bước 2: đưa `params\<version>.json` lên `models/<version>/params.json`. |
-| `batch\build_bundle.ps1` | Bước 3a: tạo kho ECR nếu chưa có, nén `src\` và các file build, đưa lên `build/batch_bundle.tar.gz`, in lệnh cho CloudShell. |
-| `batch\cloudshell_build.sh` | Bước 3b (chạy trong CloudShell): `docker build`, đăng nhập ECR, `docker push`. |
-| `batch\Dockerfile`, `Dockerfile.dockerignore`, `requirements.txt` | Công thức image của Lambda batch: Python 3.12 của Lambda, thư viện, `src\`, `handler.py`. |
+| `..\batch\build_bundle.ps1` | Bước 3a: tạo kho ECR nếu chưa có, nén `src\` và các file build, đưa lên `build/batch_bundle.tar.gz`, in lệnh cho CloudShell. |
+| `..\batch\cloudshell_build.sh` | Bước 3b (chạy trong CloudShell): `docker build`, đăng nhập ECR, `docker push`. |
+| `..\batch\Dockerfile`, `Dockerfile.dockerignore`, `requirements.txt` | Công thức image của Lambda batch: Python 3.12 của Lambda, thư viện, `src\`, `handler.py`. |
 | `terraform\` | Bước 4: toàn bộ hạ tầng. Bucket và ECR chỉ đọc, nên `terraform destroy` không đụng tới dữ liệu. |
-| `batch\handler.py` | Code chạy trong Lambda batch. `lambda_handler` (điểm vào), `load_params` (đọc params, nhớ trong container), `download_user` (tải `.plt` song song), `build_result` (nội dung file kết quả). |
-| `batch\run_batch.ps1` | Bước 6: gọi Lambda batch cho mọi cặp (user, model), đồng bộ hoặc `-Async`, ghi log `batch\runs\`, đếm file mới, lưu biên bản `results/_runs/`. |
+| `..\batch\handler.py` | Code chạy trong Lambda batch. `lambda_handler` (điểm vào), `load_params` (đọc params, nhớ trong container), `download_user` (tải `.plt` song song), `build_result` (nội dung file kết quả). |
+| `..\batch\run_batch.ps1` | Bước 6: gọi Lambda batch cho mọi cặp (user, model), đồng bộ hoặc `-Async`, ghi log `batch\runs\`, đếm file mới, lưu biên bản `results/_runs/`. |
 | `registry\register_models.py` | Bước 7: đăng ký version vào SageMaker Model Registry (`register`, `list`, `default`), duyệt version mặc định và ghi `results/_default.json` (`set-default`). |
 | `..\api\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, công tắc đăng nhập `AUTH_MODE`, `PINNED_VERSION` và `SIMULATE_ERROR` cho canary. |
 | `..\api\test.ps1` | Bước 8: gọi thử API và so mã HTTP với mong đợi. |

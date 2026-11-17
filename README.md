@@ -18,7 +18,8 @@ Home_Office/
 │   ├── test.ps1             gọi thử API trên AWS, so mã HTTP với mong đợi
 │   └── canary_check.ps1     đo tỉ lệ bản Lambda trả lời khi chạy canary
 ├── params/                  ngưỡng của từng version model (heuristic-v1.json, dbscan-v2.json), Lambda batch đọc từ S3
-├── deploy/                  triển khai lên AWS: Lambda batch, Lambda tra cứu, Terraform, registry, script (xem deploy/README.md)
+├── batch/                   Lambda batch: handler.py, Dockerfile, build image (CloudShell), run_batch.ps1 chạy batch
+├── deploy/                  hạ tầng và vận hành AWS: terraform/, data/ (upload), registry/, common.ps1 (xem deploy/README.md)
 ├── notes/
 │   ├── assumptions.md       ngưỡng và giả định, kèm căn cứ
 │   └── decisions.md         các quyết định thiết kế, theo ngày
@@ -173,7 +174,7 @@ python -m pytest tests
 | 6 | Gom cụm địa điểm: v1 tham lam quanh điểm neo (bán kính 200 m); v2 DBSCAN `eps` 200 m (D20) | v1 và v2 xong 2026-11-09 (mọi user, `eps` 200 m) | `src/places/cluster_v1.py`, `src/places/cluster_v2.py` |
 | 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | xong 2026-11-09 cho v1 và v2, gồm test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/test/15_test.ipynb` |
 | – | OpenAPI spec | 1.0.0-cp2, khớp API trên AWS | `api/openapi.yaml` |
-| 8 | Batch trên AWS: Lambda tính kết quả cho 182 user, 2 version | xong 2026-11-16 (166 user có kết quả mỗi version) | `deploy/batch/` |
+| 8 | Batch trên AWS: Lambda tính kết quả cho 182 user, 2 version | xong 2026-11-16 (166 user có kết quả mỗi version) | `batch/` |
 | 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `api/handler.py`, `deploy/terraform/` |
 | 10 | Model registry (SageMaker), version được duyệt là mặc định của API | xong 2026-11-16 | `deploy/registry/register_models.py` |
 | 11 | Deploy strategy: canary bằng Lambda alias, có demo rollback | xong 2026-11-16 | `deploy/terraform/canary.tf`, `api/canary_check.ps1` |

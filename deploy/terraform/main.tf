@@ -3,7 +3,7 @@
 #
 # Terraform KHÔNG quản lý (chỉ đọc, hoặc để ngoài hẳn):
 #   - bucket S3 (dữ liệu GPS, params, kết quả): chỉ đọc bằng "data", nên Terraform không thể xoá hay tạo lại;
-#   - kho ECR và image: build trong CloudShell (deploy/batch/build_bundle.ps1 + cloudshell_build.sh);
+#   - kho ECR và image: build trong CloudShell (batch/build_bundle.ps1 + cloudshell_build.sh);
 #   - dữ liệu trên S3 (upload_data.ps1, upload_params.ps1, results/_default.json, kết quả batch).
 
 locals {

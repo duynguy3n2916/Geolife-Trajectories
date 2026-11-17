@@ -1,4 +1,4 @@
-﻿# Gọi thử API sau khi chạy terraform apply trong deploy\terraform (đọc địa chỉ trong deploy\lookup\api_url.txt) và so mã HTTP với mong đợi.
+﻿# Bước 8 của quy trình: gọi thử API (địa chỉ trong deploy\lookup\api_url.txt, bước 5) và so mã HTTP với mong đợi.
 # Dùng Invoke-WebRequest của PowerShell thay cho curl.exe: trên một số máy Windows, curl.exe kẹt ở bước kiểm tra
 # thu hồi chứng chỉ (schannel) và trả mã 000 dù API vẫn chạy.
 # Cách chạy (từ thư mục Home_Office):  .\deploy\lookup\test.ps1

@@ -1,4 +1,4 @@
-﻿# Đo canary: gọi API nhiều lần rồi đếm mỗi bản Lambda (header X-Lambda-Version) trả lời bao nhiêu % và có bao nhiêu lỗi.
+﻿# Demo canary (sau bước 8): gọi API nhiều lần rồi đếm mỗi bản Lambda (header X-Lambda-Version) trả lời bao nhiêu % và có bao nhiêu lỗi.
 # Dùng khi demo canary (deploy/terraform/canary.tf): sau mỗi lần đổi canary_weight thì chạy lại để xem tỉ lệ thật.
 # Cách chạy (từ thư mục Home_Office):
 #   .\deploy\lookup\canary_check.ps1              100 lần, user 153

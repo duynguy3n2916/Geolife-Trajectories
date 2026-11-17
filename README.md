@@ -12,8 +12,11 @@ Home_Office/
 ├── requirements.txt         gói cho pipeline và notebook
 ├── requirements-dev.txt     pytest, scikit-learn (test), boto3 (script registry)
 ├── .gitignore
-├── api/
-│   └── openapi.yaml         hợp đồng API (1.0.0-cp2): GET /health, GET /v1/users/{user_id}/home-office
+├── api/                     mọi thứ của API
+│   ├── openapi.yaml         hợp đồng API (1.0.0-cp2): GET /health, GET /v1/users/{user_id}/home-office
+│   ├── handler.py           code API, chạy trong Lambda tra cứu (đọc kết quả tính sẵn trên S3)
+│   ├── test.ps1             gọi thử API trên AWS, so mã HTTP với mong đợi
+│   └── canary_check.ps1     đo tỉ lệ bản Lambda trả lời khi chạy canary
 ├── params/                  ngưỡng của từng version model (heuristic-v1.json, dbscan-v2.json), Lambda batch đọc từ S3
 ├── deploy/                  triển khai lên AWS: Lambda batch, Lambda tra cứu, Terraform, registry, script (xem deploy/README.md)
 ├── notes/

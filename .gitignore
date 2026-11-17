@@ -46,3 +46,8 @@ venv/
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# ---- Tài liệu học và ghi chú làm việc riêng (chỉ trên máy) ----
+deploy/terraform/HOC_TERRAFORM.md
+notes/giai_thich_cp2.md
+notes/ke_hoach_cp2.md

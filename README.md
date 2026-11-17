@@ -1,25 +1,21 @@
 # Home/Office Inference trên GeoLife (Track MLE B1)
 
-Suy ra vị trí **home** và **office** của mỗi user từ dữ liệu GPS GeoLife 1.3, rồi phục vụ kết quả qua API.
+Suy ra vị trí **home** và **office** của mỗi user từ dữ liệu GPS GeoLife 1.3, rồi phục vụ kết quả qua API trên AWS.
 
-Trạng thái: **Checkpoint 1** (location model cơ bản + API spec).
+Trạng thái: **Checkpoint 2**. Pipeline và 2 version model (`heuristic-v1`, `dbscan-v2`) chạy trên AWS: Lambda tính kết quả theo lô, API Gateway + Lambda tra cứu, SageMaker Model Registry, canary bằng Lambda alias, hạ tầng bằng Terraform. Chi tiết triển khai: `deploy/README.md`.
 
 ## Cấu trúc
 
 ```
 Home_Office/
 ├── README.md
-├── requirements.txt         pipeline + notebook + API (gồm requirements-api.txt)
-├── requirements-api.txt     chỉ gói cần cho API; image Docker cài file này
-├── Dockerfile               image chạy API (src/, api/, store); .dockerignore loại data/, notebooks/...
+├── requirements.txt         gói cho pipeline và notebook
+├── requirements-dev.txt     pytest, scikit-learn (test), boto3 (script registry)
 ├── .gitignore
-├── api/                     API FastAPI (CP2)
-│   ├── openapi.yaml         spec gốc (0.2.0-cp2-draft); /docs hiển thị đúng file này
-│   ├── app.py               6 endpoint theo spec: uvicorn api.app:app
-│   ├── uploads.py           đọc dữ liệu tải lên (JSON, CSV, .csv.gz, .zip các file .plt) trong bộ nhớ
-│   ├── store.py             đọc kết quả GeoLife tính sẵn
-│   ├── build_store.py       tạo store/geolife.sqlite từ kết quả bước 6, 7 (chạy sau bước 7)
-│   └── store/geolife.sqlite store cho các API GeoLife, commit được (vài trăm KB)
+├── api/
+│   └── openapi.yaml         hợp đồng API (1.0.0-cp2): GET /health, GET /v1/users/{user_id}/home-office
+├── params/                  ngưỡng của từng version model (heuristic-v1.json, dbscan-v2.json), Lambda batch đọc từ S3
+├── deploy/                  triển khai lên AWS: Lambda batch, Lambda tra cứu, Terraform, registry, script (xem deploy/README.md)
 ├── notes/
 │   ├── assumptions.md       ngưỡng và giả định, kèm căn cứ
 │   └── decisions.md         các quyết định thiết kế, theo ngày
@@ -53,10 +49,11 @@ Home_Office/
 │   └── test/                TEST, chạy một lần (D19)
 │       └── 15_test.ipynb
 ├── src/
+│   ├── params.py                 đọc params/*.json, chạy pipeline theo tham số (Lambda batch dùng)
 │   ├── paths.py                  PROJECT_ROOT, đường dẫn gốc dùng chung
 │   ├── geo.py                    haversine_m
-│   ├── models.py                 các version model (heuristic-v1, dbscan-v2), mầm của registry
-│   ├── infer.py                  infer(points, model_version): chuỗi GPS trong bộ nhớ -> home/office (lõi của POST /v1/infer)
+│   ├── models.py                 các version model (heuristic-v1, dbscan-v2)
+│   ├── infer.py                  dựng kết quả home/office từ địa điểm và phiếu (Lambda batch dùng)
 │   ├── preprocess/
 │   │   ├── check_raw_format.py   kiểm tra định dạng file .plt
 │   │   ├── convert_raw.py        chuyển .plt sang data/interim (một lần)
@@ -95,7 +92,7 @@ Home_Office/
     ├── cp1_bao_cao.html  slide CP1 làm lại từ đầu
     ├── cp2_tong_quan.html   CP2: tổng quan kiến trúc và các phương án
     ├── cp2_phuong_an.html   CP2: so sánh phương án từng phần
-    ├── cp2_kien_truc_aws.html   CP2: sơ đồ kiến trúc AWS đang chạy, để chốt với mentor
+    ├── cp2_kien_truc_aws.html   CP2: sơ đồ kiến trúc AWS đang chạy
     └── _fig_slide/          hình xuất từ notebook để dán vào slide (chỉ trên máy)
 ```
 
@@ -151,20 +148,7 @@ python src/places/cluster_v1.py
 python src/places/cluster_v2.py
 python src/places/home_office_conf.py --version v2      # mặc định v1; ghi outputs/home_office_<version>_val.csv
 
-# 8. Tạo store cho API GeoLife (sau bước 7 của cả v1 và v2, nhóm val và test)
-python api/build_store.py
-#    -> api/store/geolife.sqlite: home/office, cờ, tối đa 100 địa điểm mỗi user, cho mọi version
-
-# 9. Chạy API ở máy, không cần key (http://localhost:8000/docs để thử)
-uvicorn api.app:app --port 8000
-#    Chọn version: ?model_version=dbscan-v2. Muốn bật API key (bắt buộc khi deploy): đặt biến API_KEYS,
-#    ví dụ PowerShell: $env:API_KEYS="dev-key"; rồi gọi kèm header X-API-Key: dev-key (trừ /health)
-
-# 10. Đóng gói API bằng Docker (cần Docker Desktop; chạy sau bước 8)
-docker build -t home-office-api --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) .
-docker run --rm -p 8000:8000 home-office-api                       # thử ở máy, không kiểm tra key
-docker run --rm -p 8000:8000 -e API_KEYS=dev-key home-office-api   # bật API key (bắt buộc khi deploy)
-#    Mở http://localhost:8000/docs. Image khoảng 185 MB nén, chạy bằng user thường, có HEALTHCHECK gọi /health.
+# 8. Triển khai lên AWS (Lambda, API Gateway, registry, canary): xem deploy/README.md
 
 # Test (cần: pip install -r requirements-dev.txt)
 python -m pytest tests
@@ -172,7 +156,7 @@ python -m pytest tests
 
 ```
 
-## Pipeline Checkpoint 1
+## Trạng thái
 
 | # | Bước | Trạng thái | Code |
 |---|---|---|---|
@@ -185,8 +169,11 @@ python -m pytest tests
 | 5 | Stay point (Li et al., 2008; D = 200 m, T = 30 phút, max gap 24 giờ, neo h1_mean đã chốt) | xong 2026-11-07 | `src/stays/detect.py` |
 | 6 | Gom cụm địa điểm: v1 tham lam quanh điểm neo (bán kính 200 m); v2 DBSCAN `eps` 200 m (D20) | v1 và v2 xong 2026-11-09 (mọi user, `eps` 200 m) | `src/places/cluster_v1.py`, `src/places/cluster_v2.py` |
 | 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | xong 2026-11-09 cho v1 và v2, gồm test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/test/15_test.ipynb` |
-| – | OpenAPI spec (review với mentor) | bản nháp 0.2.0, chờ review | `api/openapi.yaml` |
-| – | API FastAPI chạy ở máy: 6 endpoint, API key, chọn version; chưa có giới hạn tốc độ (429), chưa deploy | xong 2026-11-09 | `api/app.py`, `tests/test_api.py` |
-| – | Docker image cho API | xong 2026-11-09 (build và chạy thử được) | `Dockerfile`, `requirements-api.txt` |
+| – | OpenAPI spec | 1.0.0-cp2, khớp API trên AWS | `api/openapi.yaml` |
+| 8 | Batch trên AWS: Lambda tính kết quả cho 182 user, 2 version | xong 2026-11-16 (166 user có kết quả mỗi version) | `deploy/batch/` |
+| 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `deploy/lookup/`, `deploy/terraform/` |
+| 10 | Model registry (SageMaker), version được duyệt là mặc định của API | xong 2026-11-16 | `deploy/registry/register_models.py` |
+| 11 | Deploy strategy: canary bằng Lambda alias, có demo rollback | xong 2026-11-16 | `deploy/terraform/canary.tf`, `deploy/lookup/canary_check.ps1` |
+| 12 | Theo dõi: alarm, email, ngân sách | xong 2026-11-16 | `deploy/terraform/monitoring.tf` |
 
 Ngưỡng và giả định: xem `notes/assumptions.md` (tất cả đã chốt 2026-11-07; A11 và A15 là quy ước, A11 kiểm lại ở `notebooks/tuning/13`). Mục ("mục N") đánh số riêng trong từng notebook; tham chiếu từ file khác ghi kèm tên notebook, ví dụ "mục 2.1 (notebook 11)". Mục của từng notebook: xem cây thư mục ở đầu file.

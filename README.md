@@ -92,7 +92,7 @@ Home_Office/
 │   ├── home_office_<v>_<val|test>.csv  kết quả home / office theo user (bước 7, notebook 15)
 │   └── duplicates/          kết quả đào sâu timestamp trùng của notebook 01 (chỉ trên máy, không có trong git)
 └── reports/                 chỉ chứa slide (một file HTML mỗi bộ: ← → chuyển slide, Ctrl+P xuất PDF)
-    ├── slides_2026-11-07.html  slide CP1 làm lại từ đầu
+    ├── cp1_bao_cao.html  slide CP1 làm lại từ đầu
     ├── cp2_tong_quan.html   CP2: tổng quan kiến trúc và các phương án
     ├── cp2_phuong_an.html   CP2: so sánh phương án từng phần
     ├── kien_truc_aws.html   CP2: sơ đồ kiến trúc AWS đang chạy, để chốt với mentor

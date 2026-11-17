@@ -110,7 +110,7 @@ def cli(version: str, description: str, places_fn: Callable, options: dict, with
     ap.add_argument("--users", nargs="*", help="chỉ chạy các user này")
     ap.add_argument("--stays-dir", type=Path, default=STAYS_DIR)
     ap.add_argument("--out-dir", type=Path, default=places_dir(version))
-    ap.add_argument("--stats", type=Path, default=Path(f"reports/place_stats_{version}.csv"))
+    ap.add_argument("--stats", type=Path, default=Path(f"outputs/place_stats_{version}.csv"))
     for flag, (typ, default, helptext) in options.items():
         ap.add_argument(flag, type=typ, default=default, help=helptext)
     args = ap.parse_args()

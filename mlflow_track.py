@@ -2,9 +2,9 @@
 
 Mỗi version một run trong experiment "home-office":
     params    tham số thật lấy từ src/models.py (D, T, max gap, khung giờ, min votes, bán kính v1 / eps + min_samples v2)
-    metrics   chỉ số KHÔNG cần nhãn, tính từ reports/home_office_<v>_<group>.csv (tỉ lệ có home / office, confidence...).
+    metrics   chỉ số KHÔNG cần nhãn, tính từ outputs/home_office_<v>_<group>.csv (tỉ lệ có home / office, confidence...).
               Dự án không có nhãn home / office thật (A13), nên KHÔNG có accuracy / F1. Đừng thêm số giả.
-    artifacts reports/home_office_<v>_<group>.csv, reports/place_stats_<v>.csv,
+    artifacts outputs/home_office_<v>_<group>.csv, outputs/place_stats_<v>.csv,
               và results/<user>.json nếu chạy với --user (suy luận thật trên file .plt gốc của user đó)
     model     pyfunc bọc src/infer.py: predict(DataFrame lat, lon, timestamp) -> kết quả home / office
 
@@ -131,8 +131,8 @@ def setup(experiment: str):
 
 def run_one(version: str, group: str, users: list[str], register: bool, model_name: str):
     m = models.get_model(version)
-    csv = ROOT / "reports" / f"home_office_{m.key}_{group}.csv"
-    stats = ROOT / "reports" / f"place_stats_{m.key}.csv"
+    csv = ROOT / "outputs" / f"home_office_{m.key}_{group}.csv"
+    stats = ROOT / "outputs" / f"place_stats_{m.key}.csv"
     with mlflow.start_run(run_name=version) as run:
         mlflow.set_tags({"model_version": version, "method": m.method, "group": group,
                          "metrics_type": "unlabeled (không có nhãn home/office thật)",
@@ -143,12 +143,12 @@ def run_one(version: str, group: str, users: list[str], register: bool, model_na
             mlflow.set_tag("results_csv_mtime",
                            datetime.fromtimestamp(csv.stat().st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
             mlflow.log_metrics(unlabeled_metrics(pd.read_csv(csv, dtype={"user": str})))
-            mlflow.log_artifact(str(csv), artifact_path="reports")
+            mlflow.log_artifact(str(csv), artifact_path="outputs")
         else:
             print(f"  [!] chưa có {csv.relative_to(ROOT)}: chạy python -m src.places.home_office_conf --version {m.key}"
                   f"{' --test' if group == 'test' else ''}. Run này không có metric.")
         if stats.exists():
-            mlflow.log_artifact(str(stats), artifact_path="reports")
+            mlflow.log_artifact(str(stats), artifact_path="outputs")
 
         for u in users:
             res, secs = user_result(u, version)

@@ -5,7 +5,7 @@ Chạy sau bước 7 của pipeline (cho từng version), từ thư mục Home_O
     python api/build_store.py                  # -> api/store/geolife.sqlite
 
 Đọc:
-    reports/home_office_<key>_val.csv, reports/home_office_<key>_test.csv     (bước 7)
+    outputs/home_office_<key>_val.csv, outputs/home_office_<key>_test.csv     (bước 7)
     data/processed/places_<key>/<user>_places.parquet                        (bước 6)
 với <key> là v1, v2 theo src/models.py. File ra chỉ gồm home/office, cờ và tối đa MAX_PLACES địa điểm mỗi user,
 cỡ vài trăm KB, nên commit được và đóng vào image Docker; API không cần thư mục data/ khi chạy.
@@ -45,7 +45,7 @@ def _empty_stay_users(key: str) -> list[str]:
 def load_results(key: str) -> pd.DataFrame:
     parts = []
     for g in GROUPS:
-        f = ROOT / "reports" / f"home_office_{key}_{g}.csv"
+        f = ROOT / "outputs" / f"home_office_{key}_{g}.csv"
         if not f.exists():
             raise SystemExit(f"Thiếu {f.relative_to(ROOT)}: chạy bước 7 với --version {key} cho nhóm {g} trước")
         parts.append(pd.read_csv(f, dtype={"user": str}))

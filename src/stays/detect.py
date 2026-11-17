@@ -31,7 +31,7 @@ Chạy:
     python src/stays/detect.py --method li             # Li thuần, để so sánh
 Đầu ra:
     data/processed/stays/<user>.parquet   một dòng mỗi stay (xem STAY_COLS)
-    reports/stay_stats.csv                số stay, thời lượng, tỷ lệ gap theo user
+    outputs/stay_stats.csv                số stay, thời lượng, tỷ lệ gap theo user
 """
 from __future__ import annotations
 
@@ -265,7 +265,7 @@ def main() -> None:
     ap.add_argument("--users", nargs="*", help="chỉ chạy các user này")
     ap.add_argument("--clean-dir", type=Path, default=CLEAN_DIR, help="thư mục dữ liệu đã lọc")
     ap.add_argument("--out-dir", type=Path, default=STAYS_DIR, help="thư mục ghi stay")
-    ap.add_argument("--stats", type=Path, default=Path("reports/stay_stats.csv"), help="file thống kê")
+    ap.add_argument("--stats", type=Path, default=Path("outputs/stay_stats.csv"), help="file thống kê")
     ap.add_argument("--dist-m", type=float, default=DIST_M)
     ap.add_argument("--time-min", type=float, default=TIME_S / 60)
     ap.add_argument("--method", choices=["h1_mean", "li"], default=METHOD, help="cách chọn neo (D13)")

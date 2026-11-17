@@ -239,12 +239,12 @@ def main():
     ap.add_argument("--test", action="store_true", help="chỉ nhóm test, chạy một lần sau khi khoá cấu hình (D19)")
     ap.add_argument("--version", default="v1", choices=["v1", "v2"],
                     help="đọc stay đã gán địa điểm từ data/processed/places_<version> (cluster_v1 hoặc cluster_v2); mặc định v1")
-    ap.add_argument("--out", default=None, help="mặc định reports/home_office_<version>_{val,test,all}.csv")
+    ap.add_argument("--out", default=None, help="mặc định outputs/home_office_<version>_{val,test,all}.csv")
     a = ap.parse_args()
     from eda import split
     group = "test" if a.test else "all" if a.all else "val"
     users = {"test": split.test_users, "all": lambda: split.val_users() + split.test_users(), "val": split.val_users}[group]()
-    a.out = a.out or str(ROOT / "reports" / f"home_office_{a.version}_{group}.csv")
+    a.out = a.out or str(ROOT / "outputs" / f"home_office_{a.version}_{group}.csv")
     df = run(users, version_dir(a.version))
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(a.out, index=False)

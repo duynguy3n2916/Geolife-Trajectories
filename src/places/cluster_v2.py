@@ -25,7 +25,7 @@ Chạy:
 Đầu ra (thư mục data/processed/places_v2/):
     <user>_places.parquet   một dòng mỗi địa điểm (PLACE_COLS; thêm diam_m: đường kính, hai stay xa nhau nhất)
     <user>_stays.parquet    bảng stay của user kèm cột place_id
-    reports/place_stats_v2.csv
+    outputs/place_stats_v2.csv
 """
 from __future__ import annotations
 

@@ -21,14 +21,14 @@ Bước 1–3 chỉ dùng timestamp UTC (GeoLife ghi theo GMT). Ngưỡng và c�
                                           source_file, user        (chỉ khi có --save-clean)
                                           Parquet giữ nguyên kiểu thời gian; pickle nếu thiếu pyarrow.
                                           Đọc lại bằng load_clean(user).
-    reports/filter_stats.csv              số điểm bị loại ở từng bước, theo user (CSV để mở xem)
+    outputs/filter_stats.csv              số điểm bị loại ở từng bước, theo user (CSV để mở xem)
 
 Nguồn dữ liệu: đọc từ data/interim (đã chuyển đổi bằng convert_raw.py, nhanh) nếu có; user nào chưa
 chuyển đổi thì đọc thẳng file .plt. Hai nguồn cho kết quả giống hệt. --from-raw: luôn đọc file .plt.
 
 Chạy (từ bất kỳ thư mục nào; đường dẫn tương đối tính từ thư mục Home_Office):
     python src/preprocess/clean_trajectory.py --save-clean data/processed/clean
-    python src/preprocess/clean_trajectory.py --from-raw --root data/raw/geolife/Data --out reports/filter_stats.csv
+    python src/preprocess/clean_trajectory.py --from-raw --root data/raw/geolife/Data --out outputs/filter_stats.csv
 """
 from __future__ import annotations
 
@@ -309,7 +309,7 @@ def load_clean(user: str, clean_dir: Path = CLEAN_DIR) -> pd.DataFrame | None:
     return interim.read_df(Path(clean_dir) / user)
 
 
-# Lọc mọi user trong thư mục dữ liệu gốc, ghi reports/filter_stats.csv.
+# Lọc mọi user trong thư mục dữ liệu gốc, ghi outputs/filter_stats.csv.
 def process_root(root: Path, out_csv: Path, save_clean: Path | None, from_raw: bool = False) -> None:
     """Lọc mọi user trong thư mục dữ liệu, ghi bảng thống kê ra out_csv."""
     rows = []
@@ -337,7 +337,7 @@ def _from_project(path: Path) -> Path:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Tiền xử lý quỹ đạo GPS GeoLife.")
     ap.add_argument("--root", type=Path, default=Path("data/raw/geolife/Data"), help="thư mục dữ liệu gốc")
-    ap.add_argument("--out", type=Path, default=Path("reports/filter_stats.csv"), help="file thống kê")
+    ap.add_argument("--out", type=Path, default=Path("outputs/filter_stats.csv"), help="file thống kê")
     ap.add_argument("--save-clean", type=Path, default=None, help="thư mục ghi dữ liệu sạch (bỏ trống: không ghi)")
     ap.add_argument("--from-raw", action="store_true", help="luôn đọc file .plt, bỏ qua data/interim")
     args = ap.parse_args()

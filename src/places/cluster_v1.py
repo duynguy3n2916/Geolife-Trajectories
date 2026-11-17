@@ -16,7 +16,7 @@ Chạy:
 Đầu ra (thư mục data/processed/places_v1/):
     <user>_places.parquet   một dòng mỗi địa điểm; place_id 0 là nơi có tổng thời gian lớn nhất (xem PLACE_COLS)
     <user>_stays.parquet    bảng stay của user kèm cột place_id
-    reports/place_stats_v1.csv
+    outputs/place_stats_v1.csv
 """
 from __future__ import annotations
 

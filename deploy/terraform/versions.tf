@@ -3,7 +3,7 @@
 # `terraform init` tải provider về thư mục .terraform/ và ghi phiên bản đã chọn vào .terraform.lock.hcl.
 
 terraform {
-  required_version = ">= 1.5" # cần >= 1.5 để dùng khối import trong imports.tf
+  required_version = ">= 1.5"
 
   required_providers {
     aws = {

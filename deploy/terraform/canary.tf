@@ -63,7 +63,7 @@ resource "aws_lambda_alias" "live" {
   }
 }
 
-# Quyền cho API Gateway gọi alias live (quyền cũ apigw-invoke trên function gốc vẫn giữ, vô hại).
+# Quyền cho API Gateway gọi alias live (API chỉ gọi qua alias, không gọi thẳng function).
 resource "aws_lambda_permission" "apigw_live" {
   statement_id  = "apigw-invoke-live"
   action        = "lambda:InvokeFunction"

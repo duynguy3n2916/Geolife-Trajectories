@@ -247,11 +247,3 @@ resource "aws_apigatewayv2_stage" "default" {
   }
 }
 
-# Cho API Gateway quyền gọi Lambda tra cứu.
-resource "aws_lambda_permission" "apigw" {
-  statement_id  = "apigw-invoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lookup.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
-}

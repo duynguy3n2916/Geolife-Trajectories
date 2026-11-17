@@ -1,3 +1,4 @@
 pytest
-httpx         # TestClient của FastAPI (tests/test_api.py)
 scikit-learn  # chỉ để test so cluster_v2 với DBSCAN của scikit-learn
+boto3                # deploy/registry/register_models.py (SageMaker Model Registry)
+botocore[crt]        # để boto3 đọc được phiên đăng nhập của aws login

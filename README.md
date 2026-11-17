@@ -95,7 +95,7 @@ Home_Office/
     ├── cp1_bao_cao.html  slide CP1 làm lại từ đầu
     ├── cp2_tong_quan.html   CP2: tổng quan kiến trúc và các phương án
     ├── cp2_phuong_an.html   CP2: so sánh phương án từng phần
-    ├── kien_truc_aws.html   CP2: sơ đồ kiến trúc AWS đang chạy, để chốt với mentor
+    ├── cp2_kien_truc_aws.html   CP2: sơ đồ kiến trúc AWS đang chạy, để chốt với mentor
     └── _fig_slide/          hình xuất từ notebook để dán vào slide (chỉ trên máy)
 ```
 

@@ -85,10 +85,18 @@ Home_Office/
 │       ├── scan.py               quét data/interim, tính số liệu theo chủ đề cho từng notebook
 │       └── utils.py              hàm nhỏ (phân vị từ histogram, định dạng nhãn)
 ├── tests/                   pytest: gom cụm, bỏ phiếu, infer (python -m pytest tests)
-└── reports/
-    ├── cp1_slides_v1.html   slide tổng kết Checkpoint 1 (bản đầu)
-    ├── slides_2026-11-07.html  slide làm lại từ đầu, một file HTML (← → chuyển slide, Ctrl+P xuất PDF); slide đều để ở reports/
-    └── filter_stats.csv     số liệu lọc theo user
+├── outputs/                 số liệu do code và notebook ghi ra (CSV)
+│   ├── filter_stats.csv     số điểm bị loại ở từng bước lọc, theo user (bước 4)
+│   ├── stay_stats.csv       số stay, thời lượng, tỷ lệ gap theo user (bước 5)
+│   ├── place_stats_<v>.csv  số địa điểm theo user, cho từng version (bước 6)
+│   ├── home_office_<v>_<val|test>.csv  kết quả home / office theo user (bước 7, notebook 15)
+│   └── duplicates/          kết quả đào sâu timestamp trùng của notebook 01 (chỉ trên máy, không có trong git)
+└── reports/                 chỉ chứa slide (một file HTML mỗi bộ: ← → chuyển slide, Ctrl+P xuất PDF)
+    ├── slides_2026-11-07.html  slide CP1 làm lại từ đầu
+    ├── cp2_tong_quan.html   CP2: tổng quan kiến trúc và các phương án
+    ├── cp2_phuong_an.html   CP2: so sánh phương án từng phần
+    ├── kien_truc_aws.html   CP2: sơ đồ kiến trúc AWS đang chạy, để chốt với mentor
+    └── _fig_slide/          hình xuất từ notebook để dán vào slide (chỉ trên máy)
 ```
 
 ## Cài đặt
@@ -127,21 +135,21 @@ python src/eda/split.py
 
 # 4. Lọc với các ngưỡng đã chọn (đọc từ data/interim)
 python src/preprocess/clean_trajectory.py --save-clean data/processed/clean
-#    -> reports/filter_stats.csv (CSV) và data/processed/clean/*.parquet
+#    -> outputs/filter_stats.csv (CSV) và data/processed/clean/*.parquet
 #    đọc lại: from clean_trajectory import load_clean; load_clean("060")
 
 # 5. Stay point (đọc data/processed/clean)
 python src/stays/detect.py
-#    -> data/processed/stays/<user>.parquet và reports/stay_stats.csv
+#    -> data/processed/stays/<user>.parquet và outputs/stay_stats.csv
 
 # 6. Gom stay thành địa điểm, phiên bản v1 (đọc data/processed/stays)
 python src/places/cluster_v1.py
 #    -> data/processed/places_v1/<user>_places.parquet, <user>_stays.parquet (kèm place_id)
-#       và reports/place_stats_v1.csv
+#       và outputs/place_stats_v1.csv
 
 # 6b. Phiên bản v2 (DBSCAN, eps 200 m); chạy bước 7 cho v2 bằng --version v2
 python src/places/cluster_v2.py
-python src/places/home_office_conf.py --version v2      # mặc định v1; ghi reports/home_office_<version>_val.csv
+python src/places/home_office_conf.py --version v2      # mặc định v1; ghi outputs/home_office_<version>_val.csv
 
 # 8. Tạo store cho API GeoLife (sau bước 7 của cả v1 và v2, nhóm val và test)
 python api/build_store.py

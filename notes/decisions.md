@@ -108,7 +108,7 @@ Kết quả 16/11: 364 lần gọi, 0 lỗi, mỗi version 166 user có kết qu
 ### D24. Model registry: SageMaker Model Registry, API đọc bản sao ở S3
 **Chốt 2026-11-16.** Group `home-office`, mỗi version một Model Package (con trỏ tới `params.json`, thư mục kết quả, commit, tham số, image). Đúng một version `Approved` = version mặc định của API.
 - `register_models.py set-default <v>` vừa duyệt trên registry vừa ghi `results/_default.json`; Lambda tra cứu chỉ đọc file này (nhớ 60 giây), không gọi registry ở mỗi request (nhanh, ít phụ thuộc). Đổi version mặc định chỉ qua lệnh này để registry và API không lệch nhau.
-- Chọn SageMaker thay MLflow: dịch vụ có sẵn, không phải dựng máy chủ, cùng tài khoản và IAM. Không có phần theo dõi thí nghiệm như MLflow (vẫn dùng `mlflow_track.py` cục bộ cho việc đó).
+- Chọn SageMaker thay MLflow: dịch vụ có sẵn, không phải dựng máy chủ, cùng tài khoản và IAM. Không có phần theo dõi thí nghiệm như MLflow; dự án không dùng MLflow.
 - **Hiện tại:** `dbscan-v2` Approved (đặt trong lúc demo canary 16/11). Chọn version chính thức cho bản nộp **chưa chốt**: hai bản trùng home 93%, office 100% (D20), không có nhãn để biết bản nào đúng hơn (A13).
 
 ### D25. Deploy strategy: canary bằng Lambda alias có trọng số

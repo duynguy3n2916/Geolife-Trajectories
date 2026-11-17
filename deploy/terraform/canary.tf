@@ -1,4 +1,4 @@
-# Deploy strategy: canary cho Lambda tra cứu bằng alias có trọng số (bước C của kế hoạch CP2).
+# Deploy strategy: canary cho Lambda tra cứu bằng alias có trọng số.
 #
 # Cách hoạt động:
 #   - Lambda tra cứu bật publish: mỗi lần đổi code hoặc cấu hình sinh một bản cố định (version 1, 2, 3...).

@@ -2,7 +2,7 @@
 # Lấy một giá trị dạng chữ trơn:            terraform output -raw api_url
 
 output "api_url" {
-  description = "Địa chỉ API (thay cho deploy/lookup/api_url.txt)."
+  description = "Địa chỉ API (test.ps1 và canary_check.ps1 đọc bản chép ở deploy/lookup/api_url.txt)."
   value       = trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/") # bỏ "/" cuối để test.ps1 ghép đường dẫn đúng
 }
 

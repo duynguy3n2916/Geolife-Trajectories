@@ -1,5 +1,5 @@
-# Hạ tầng AWS của Home/Office, viết bằng Terraform.
-# Thay cho deploy/batch/deploy.ps1, deploy/batch/setup_async.ps1 và phần hạ tầng của deploy/lookup/deploy.ps1.
+# Hạ tầng chính của Home/Office: Lambda batch, Lambda tra cứu, API Gateway và quyền IAM.
+# Canary (alias live) ở canary.tf, alarm và ngân sách ở monitoring.tf.
 #
 # Terraform KHÔNG quản lý (chỉ đọc, hoặc để ngoài hẳn):
 #   - bucket S3 (dữ liệu GPS, params, kết quả): chỉ đọc bằng "data", nên Terraform không thể xoá hay tạo lại;
@@ -13,7 +13,7 @@ locals {
   # Quyền ghi log CloudWatch, gắn cho cả hai role.
   basic_exec_policy = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 
-  # Cho phép dịch vụ Lambda "đóng vai" role (giống deploy/lambda-trust.json).
+  # Cho phép dịch vụ Lambda "đóng vai" role (dùng cho cả hai role).
   lambda_trust = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -38,7 +38,7 @@ data "aws_ecr_repository" "lambda" {
 
 # Image hiện tại của tag v1. Dùng mã băm (digest) của image thay cho tag:
 # build lại image trong CloudShell rồi chạy `terraform apply` là Lambda tự chuyển sang image mới.
-# Nếu chưa có image, bước plan báo lỗi ngay (giống kiểm tra đầu deploy/batch/deploy.ps1).
+# Nếu chưa có image, bước plan báo lỗi ngay.
 data "aws_ecr_image" "batch" {
   repository_name = data.aws_ecr_repository.lambda.name
   image_tag       = var.image_tag

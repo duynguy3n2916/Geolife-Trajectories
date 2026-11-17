@@ -1,4 +1,4 @@
-# Theo dõi và kiểm soát chi phí (bước A4 của kế hoạch CP2).
+# Theo dõi và kiểm soát chi phí.
 #   - 3 alarm CloudWatch: Lambda tra cứu lỗi, Lambda batch lỗi, API trả nhiều lỗi 5xx.
 #   - 1 hàng thông báo SNS: alarm kêu thì gửi email (nếu có địa chỉ).
 #   - 1 ngân sách AWS Budgets 5 USD/tháng: gửi email khi chi phí thật vượt 80% hoặc dự báo vượt 100%.

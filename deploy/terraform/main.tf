@@ -172,7 +172,7 @@ resource "aws_iam_role_policy" "lookup_read" {
 # Nén handler.py thành zip (handler.py nằm ở gốc file zip). Sửa handler.py rồi `terraform apply` là code mới được đưa lên.
 data "archive_file" "lookup" {
   type        = "zip"
-  source_file = "${path.module}/../lookup/handler.py"
+  source_file = "${path.module}/../../api/handler.py"
   output_path = "${path.module}/build/lookup.zip"
 }
 

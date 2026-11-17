@@ -14,7 +14,7 @@ docs/
 # ---- deploy: log lần chạy, kết quả đo, gói tạm, địa chỉ API ----
 deploy/batch/runs/
 deploy/bench/
-deploy/lookup/api_url.txt
+api/api_url.txt
 *.tar.gz
 
 # ---- Python ----

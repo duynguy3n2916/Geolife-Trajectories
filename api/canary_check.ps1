@@ -1,9 +1,9 @@
 ﻿# Demo canary (sau bước 8): gọi API nhiều lần rồi đếm mỗi bản Lambda (header X-Lambda-Version) trả lời bao nhiêu % và có bao nhiêu lỗi.
 # Dùng khi demo canary (deploy/terraform/canary.tf): sau mỗi lần đổi canary_weight thì chạy lại để xem tỉ lệ thật.
 # Cách chạy (từ thư mục Home_Office):
-#   .\deploy\lookup\canary_check.ps1              100 lần, user 153
-#   .\deploy\lookup\canary_check.ps1 -N 200 -User 128
-# Đọc địa chỉ API trong deploy\lookup\api_url.txt.
+#   .\api\canary_check.ps1              100 lần, user 153
+#   .\api\canary_check.ps1 -N 200 -User 128
+# Đọc địa chỉ API trong api\api_url.txt.
 param([int]$N = 100, [string]$User = "153")
 
 $url = (Get-Content "$PSScriptRoot\api_url.txt" -Raw).Trim() + "/v1/users/$User/home-office"

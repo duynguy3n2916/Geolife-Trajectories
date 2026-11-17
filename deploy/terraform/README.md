@@ -49,10 +49,10 @@ Terraform in lại plan và hỏi; gõ `yes` mới thực hiện.
 | Muốn | Làm |
 |---|---|
 | Đổi RAM, timeout, giới hạn request | sửa `variables.tf`, rồi `plan`, `apply` |
-| Đưa code mới của `deploy\lookup\handler.py` lên | `plan`, `apply` (Terraform tự nén lại) |
+| Đưa code mới của `api\handler.py` lên | `plan`, `apply` (Terraform tự nén lại) |
 | Đưa image batch mới lên | build trong CloudShell như cũ (bước 3a, 3b), rồi `plan`, `apply` |
 | Xem địa chỉ API | `terraform output -raw api_url` |
-| Ghi địa chỉ API cho `test.ps1`, `canary_check.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\lookup\api_url.txt` |
+| Ghi địa chỉ API cho `test.ps1`, `canary_check.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` |
 | Xem Terraform đang quản lý gì | `terraform state list` |
 
 ## Báo động và ngân sách (`monitoring.tf`)
@@ -71,7 +71,7 @@ Xem trạng thái alarm: console CloudWatch → Alarms, hoặc `aws cloudwatch d
 
 Alias `live` chọn bản Lambda nào phục vụ người dùng và chia traffic giữa bản cũ và bản mới nhất.
 Điều khiển bằng cách sửa `canary.auto.tfvars` rồi `terraform plan`, `terraform apply`.
-Sau mỗi bước, đo tỉ lệ thật (từ thư mục `Home_Office`): `.\deploy\lookup\canary_check.ps1 -N 200`.
+Sau mỗi bước, đo tỉ lệ thật (từ thư mục `Home_Office`): `.\api\canary_check.ps1 -N 200`.
 
 | Bước | `lookup_pinned_version` | `stable_version` | `canary_weight` | `lookup_simulate_error` | Kết quả mong đợi |
 |---|---|---|---|---|---|

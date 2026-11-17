@@ -11,7 +11,7 @@ terraform {
       version = "~> 6.0"
     }
     archive = {
-      source  = "hashicorp/archive" # nén deploy/lookup/handler.py thành file zip cho Lambda tra cứu
+      source  = "hashicorp/archive" # nén api/handler.py thành file zip cho Lambda tra cứu
       version = "~> 2.4"
     }
   }

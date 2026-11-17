@@ -171,9 +171,9 @@ python -m pytest tests
 | 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | xong 2026-11-09 cho v1 và v2, gồm test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/test/15_test.ipynb` |
 | – | OpenAPI spec | 1.0.0-cp2, khớp API trên AWS | `api/openapi.yaml` |
 | 8 | Batch trên AWS: Lambda tính kết quả cho 182 user, 2 version | xong 2026-11-16 (166 user có kết quả mỗi version) | `deploy/batch/` |
-| 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `deploy/lookup/`, `deploy/terraform/` |
+| 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `api/handler.py`, `deploy/terraform/` |
 | 10 | Model registry (SageMaker), version được duyệt là mặc định của API | xong 2026-11-16 | `deploy/registry/register_models.py` |
-| 11 | Deploy strategy: canary bằng Lambda alias, có demo rollback | xong 2026-11-16 | `deploy/terraform/canary.tf`, `deploy/lookup/canary_check.ps1` |
+| 11 | Deploy strategy: canary bằng Lambda alias, có demo rollback | xong 2026-11-16 | `deploy/terraform/canary.tf`, `api/canary_check.ps1` |
 | 12 | Theo dõi: alarm, email, ngân sách | xong 2026-11-16 | `deploy/terraform/monitoring.tf` |
 
 Ngưỡng và giả định: xem `notes/assumptions.md` (tất cả đã chốt 2026-11-07; A11 và A15 là quy ước, A11 kiểm lại ở `notebooks/tuning/13`). Mục ("mục N") đánh số riêng trong từng notebook; tham chiếu từ file khác ghi kèm tên notebook, ví dụ "mục 2.1 (notebook 11)". Mục của từng notebook: xem cây thư mục ở đầu file.

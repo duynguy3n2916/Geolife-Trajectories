@@ -43,10 +43,10 @@ Mỗi bước tạo ra thứ mà bước sau cần.
 | 3a | `.\deploy\batch\build_bundle.ps1` | kho ECR, gói mã nguồn trên S3, lệnh cho CloudShell | CloudShell cần gói này để build |
 | 3b | dán lệnh mà 3a in ra vào **CloudShell** | image `home-office-lambda:v1` trong ECR | Lambda kiểu image cần image có sẵn trong ECR |
 | 4 | trong `deploy\terraform`: `terraform plan`, rồi `terraform apply` | toàn bộ hạ tầng | cần image (3b) và bucket (1) |
-| 5 | trong `deploy\terraform`: `terraform output -raw api_url \| Set-Content -Encoding ascii ..\lookup\api_url.txt` | `deploy\lookup\api_url.txt` | `test.ps1`, `canary_check.ps1` đọc địa chỉ API từ file này |
+| 5 | trong `deploy\terraform`: `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` | `api\api_url.txt` | `test.ps1`, `canary_check.ps1` đọc địa chỉ API từ file này |
 | 6 | `.\deploy\batch\run_batch.ps1` | `results/<version>/<user>.json` | cần đủ dữ liệu, params, function, quyền ghi |
 | 7 | `python deploy/registry/register_models.py register`, rồi `set-default heuristic-v1` | 2 version trên registry, `results/_default.json` | API cần biết version mặc định |
-| 8 | `.\deploy\lookup\test.ps1` | | kiểm API trả đúng mã HTTP |
+| 8 | `.\api\test.ps1` | | kiểm API trả đúng mã HTTP |
 
 Chạy thử trước khi chạy hết: `.\deploy\batch\run_batch.ps1 -OnlyUsers 153,128 -DryRun`.
 Batch trên AWS là để **phục vụ**, nên chạy cho mọi user (182), không chia validation / test và không bỏ user bị loại.
@@ -58,7 +58,7 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 |---|---|
 | ngưỡng (`params\*.json` hoặc hằng số trong `src\`) | 2 rồi 6 (không build lại image nếu chỉ đổi file params) |
 | `deploy\batch\handler.py` hoặc code trong `src\` | 3a, 3b, 4, 6 |
-| `deploy\lookup\handler.py` | 4 (`terraform apply` tự nén lại code và tạo bản Lambda mới) |
+| `api\handler.py` | 4 (`terraform apply` tự nén lại code và tạo bản Lambda mới) |
 | thêm GPS | 1 rồi 6 (cho user có dữ liệu mới) |
 | đổi version mặc định của API | `python deploy/registry/register_models.py set-default dbscan-v2` |
 | thêm version model mới | `params\<version>.json`, 2, 6, rồi `register_models.py register` |
@@ -79,9 +79,9 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | `batch\handler.py` | Code chạy trong Lambda batch. `lambda_handler` (điểm vào), `load_params` (đọc params, nhớ trong container), `download_user` (tải `.plt` song song), `build_result` (nội dung file kết quả). |
 | `batch\run_batch.ps1` | Bước 6: gọi Lambda batch cho mọi cặp (user, model), đồng bộ hoặc `-Async`, ghi log `batch\runs\`, đếm file mới, lưu biên bản `results/_runs/`. |
 | `registry\register_models.py` | Bước 7: đăng ký version vào SageMaker Model Registry (`register`, `list`, `default`), duyệt version mặc định và ghi `results/_default.json` (`set-default`). |
-| `lookup\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, công tắc đăng nhập `AUTH_MODE`, `PINNED_VERSION` và `SIMULATE_ERROR` cho canary. |
-| `lookup\test.ps1` | Bước 8: gọi thử API và so mã HTTP với mong đợi. |
-| `lookup\canary_check.ps1` | Demo canary: gọi API nhiều lần, đếm bản Lambda nào trả lời và tỉ lệ lỗi. |
+| `..\api\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, công tắc đăng nhập `AUTH_MODE`, `PINNED_VERSION` và `SIMULATE_ERROR` cho canary. |
+| `..\api\test.ps1` | Bước 8: gọi thử API và so mã HTTP với mong đợi. |
+| `..\api\canary_check.ps1` | Demo canary: gọi API nhiều lần, đếm bản Lambda nào trả lời và tỉ lệ lỗi. |
 | `bench\results\` | Kết quả thử nghiệm đo thời gian và RAM ngày 12/11 (chỉ trên máy, không có trong git; script đo đã xoá, xem lịch sử git nếu cần đo lại). |
 
 Hàm trong `src\params.py` (dùng bởi Lambda batch): `load` (đọc params từ máy hoặc S3), `validate`, `to_kwargs` (chia params cho từng bước), `run_pipeline` (stay point, gom địa điểm, bỏ phiếu), `build` và CLI `write` (sinh `params\*.json`), `check` (đối chiếu file với code).

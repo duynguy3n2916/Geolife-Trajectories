@@ -112,7 +112,7 @@ Kết quả 16/11: 364 lần gọi, 0 lỗi, mỗi version 166 user có kết qu
 - **Hiện tại:** `dbscan-v2` Approved (đặt trong lúc demo canary 16/11). Chọn version chính thức cho bản nộp **chưa chốt**: hai bản trùng home 93%, office 100% (D20), không có nhãn để biết bản nào đúng hơn (A13).
 
 ### D25. Deploy strategy: canary bằng Lambda alias có trọng số
-**Chốt 2026-11-16.** Lambda tra cứu bật `publish` (mỗi lần đổi code / cấu hình thành một bản đánh số); alias `live` trỏ bản chính và gửi một phần traffic sang bản mới nhất; API Gateway gọi alias. Điều khiển bằng `deploy/terraform/canary.auto.tfvars`; đo bằng `deploy/lookup/canary_check.ps1` (header `X-Lambda-Version`).
+**Chốt 2026-11-16.** Lambda tra cứu bật `publish` (mỗi lần đổi code / cấu hình thành một bản đánh số); alias `live` trỏ bản chính và gửi một phần traffic sang bản mới nhất; API Gateway gọi alias. Điều khiển bằng `deploy/terraform/canary.auto.tfvars`; đo bằng `api/canary_check.ps1` (header `X-Lambda-Version`).
 - **Vì sao canary bằng alias:** kiến trúc đã là Lambda, chia traffic có sẵn và không tốn thêm; HTTP API không chia theo %; ALB chỉ dùng cho máy chủ / container.
 - **Demo 16/11:** 10% (đo được 11%), 50%, 100% sang bản ghim `dbscan-v2`; bản cố ý lỗi ở 10% cho 12% lỗi 500, alarm `home-office-api-5xx` kêu và gửi email; rollback về 0% lỗi; dọn về bản theo registry.
 - **Shadow** chỉ giải thích (người dùng không nhận kết quả bản mới; hợp so model khi không có nhãn), chưa cài. **Blue-green** là trường hợp đặc biệt của alias (chuyển 0 → 100% một lần).

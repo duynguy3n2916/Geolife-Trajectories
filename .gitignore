@@ -9,8 +9,6 @@
 outputs/duplicates/
 # hình xuất từ notebook để dán vào slide
 reports/_fig_slide/
-# store SQLite của API FastAPI cũ (tạo lại bằng archive/api_fastapi/build_store.py)
-archive/api_fastapi/store/
 docs/
 
 # ---- deploy: log lần chạy, kết quả đo, gói tạm, địa chỉ API ----

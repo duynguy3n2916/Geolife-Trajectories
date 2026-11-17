@@ -1,7 +1,15 @@
 # deploy/terraform: hạ tầng AWS của Home/Office bằng Terraform
 
-Thay cho `deploy\batch\deploy.ps1`, `deploy\batch\setup_async.ps1` và phần hạ tầng của `deploy\lookup\deploy.ps1`.
-Mới dùng Terraform: đọc `HOC_TERRAFORM.md` trước.
+Toàn bộ hạ tầng AWS của dự án (bước 4 trong `deploy\README.md`). Mới dùng Terraform: đọc `HOC_TERRAFORM.md` trước.
+
+| File | Nội dung |
+|---|---|
+| `versions.tf` | phiên bản Terraform, provider, đăng nhập AWS, chốt đúng một tài khoản, nhãn chung |
+| `variables.tf` | RAM, timeout của 2 Lambda, giới hạn request API, tag image |
+| `main.tf` | bucket và ECR (chỉ đọc), Lambda batch + role + hàng đợi lỗi, Lambda tra cứu + role, API Gateway |
+| `canary.tf`, `canary.auto.tfvars` | alias `live` và điều khiển canary |
+| `monitoring.tf`, `terraform.tfvars` | alarm, email báo động, ngân sách (email chỉ để trên máy) |
+| `outputs.tf` | giá trị in ra sau apply |
 
 Tài khoản duy nhất: Blank Canvas `451071929893`, vùng `ap-southeast-1`, profile `home-office`.
 
@@ -44,7 +52,7 @@ Terraform in lại plan và hỏi; gõ `yes` mới thực hiện.
 | Đưa code mới của `deploy\lookup\handler.py` lên | `plan`, `apply` (Terraform tự nén lại) |
 | Đưa image batch mới lên | build trong CloudShell như cũ (bước 3a, 3b), rồi `plan`, `apply` |
 | Xem địa chỉ API | `terraform output -raw api_url` |
-| Ghi địa chỉ API cho `test.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\lookup\api_url.txt` |
+| Ghi địa chỉ API cho `test.ps1`, `canary_check.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\lookup\api_url.txt` |
 | Xem Terraform đang quản lý gì | `terraform state list` |
 
 ## Báo động và ngân sách (`monitoring.tf`)
@@ -79,12 +87,6 @@ Số bản (1, 2, 3) là số thật Lambda cấp, xem bằng `terraform output 
 Blue-green là trường hợp đặc biệt: chuyển thẳng từ bước 0 sang bước 3, giữ bản cũ để quay lại tức thì.
 Sau khi chuyển hẳn sang `dbscan-v2`, nên chạy `python deploy/registry/register_models.py set-default dbscan-v2` để registry khớp.
 
-## Lần apply đầu tiên (import)
-
-`imports.tf` nhận về 17 tài nguyên đã tạo bằng script. Plan lần đầu phải là:
-`17 to import, 0 to add, 7 to change, 0 to destroy`. Bảy thay đổi là gắn nhãn, ghi image theo mã băm,
-và tải lại zip của Lambda tra cứu (cùng nội dung). Sau apply, chạy `.\deploy\lookup\test.ps1` (từ thư mục `Home_Office`) để kiểm tra.
-
 ## State
 
 `terraform.tfstate` là sổ ghi Terraform đang quản lý gì. Không sửa tay, không xoá, không đưa lên git.
@@ -94,16 +96,11 @@ Sao lưu sau mỗi lần apply, ví dụ:
 Copy-Item terraform.tfstate "terraform.tfstate.$(Get-Date -Format yyyyMMdd_HHmm).bak"
 ```
 
-## Sau khi chuyển sang Terraform
+## Lịch sử
 
-Đã apply ngày 13/11/2026 (`terraform plan` sau đó: No changes; `test.ps1` qua cả 5 phép thử). Vì vậy đã xoá:
-`batch\deploy.ps1`, `batch\setup_async.ps1`, `lookup\deploy.ps1`, `cleanup.ps1`, `lambda-trust.json`
-(vẫn xem lại được trong lịch sử git).
-
-- Đặt version mặc định của API: `.\deploy\data\set_default_version.ps1 dbscan-v2` (thay cho `lookup\deploy.ps1 -DefaultVersion`).
-- Xoá hạ tầng: `terraform destroy` (xoá 17 resource, **không** đụng bucket và ECR). Đừng chạy nếu không chắc.
-- Vẫn dùng như cũ: `upload_data.ps1`, `upload_params.ps1`, `build_bundle.ps1` + CloudShell, `run_batch.ps1`, `test.ps1`.
-- `imports.tf` đã hết tác dụng sau lần apply đầu; giữ lại cũng vô hại.
+Hạ tầng ban đầu tạo bằng script PowerShell, chuyển sang Terraform ngày 13/11/2026 bằng khối `import` (nhận 17 tài nguyên có sẵn, 0 xoá).
+Sau đó đã xoá các script hạ tầng cũ và file `imports.tf` (vẫn xem lại được trong lịch sử git).
+`terraform destroy` xoá mọi tài nguyên trong thư mục này nhưng **không** đụng bucket và ECR. Đừng chạy nếu không chắc.
 
 ## Lỗi hay gặp
 
@@ -113,4 +110,3 @@ Copy-Item terraform.tfstate "terraform.tfstate.$(Get-Date -Format yyyyMMdd_HHmm)
 | `No valid credential sources` / `expired` | `aws login --profile home-office --region ap-southeast-1` |
 | `AWS account ID not allowed` | đang đăng nhập nhầm tài khoản; đăng nhập lại profile `home-office` |
 | `terraform init` lỗi `connection was forcibly closed` khi tải provider | mạng chặn tải file lớn; chạy lại, hoặc nhờ Claude tải provider bằng curl |
-| `couldn't find resource` khi import | tài nguyên đã bị xoá hoặc đổi mã; xem lại `imports.tf` |

@@ -24,7 +24,7 @@ Xóa chỉ với lỗi dữ liệu, bản trùng, và chuỗi đi ra rồi quay 
 **Chốt 2026-11-07:** xoá theo số điểm của chuỗi (N), k ≤ 5, không theo thời gian: đếm điểm không phụ thuộc tần suất ghi. Căn cứ và hạn chế: A6. Có chọn N = 3 hay 5 sau khi chạy lại tuning/07 trên bản chia mới thì ghi lại ở đây.
 
 ### D12. Giờ địa phương bằng thư viện múi giờ
-`add_local_time` (`src/preprocess/local_time.py`) tra IANA bằng `timezonefinder` theo ô 0,5° (tại tâm ô, có cache) rồi đổi giờ bằng `zoneinfo`; thêm `tz_name`, `tz_offset_h`. Theo yêu cầu của mentor họp 3/11. Không kiểm thêm; ô 0,5° là xấp xỉ (A9).
+`add_local_time` (`src/preprocess/local_time.py`) tra IANA bằng `timezonefinder` theo ô 0,5° (tại tâm ô, có cache) rồi đổi giờ bằng `zoneinfo`; thêm `tz_name`, `tz_offset_h`. Theo cuộc họp 3/11. Không kiểm thêm; ô 0,5° là xấp xỉ (A9).
 
 ## Stay point và địa điểm
 
@@ -42,7 +42,7 @@ Giá trị khởi điểm của bài gốc; kiểm bằng tỷ lệ bị nhận 
 `detect.detect_stays_h1`, `detect.mean_center`: chạy Li, dời neo vào điểm GPS gần nhất với trung bình vĩ độ và trung bình kinh độ của stay Li (không trọng số), mở rộng hai phía, chỉ nhận nếu không ngắn hơn stay của Li. Các cách đã thử và bỏ trước đây (`h1_keep`, `h2`, `h3`, ngắt stay khi hai đầu khoảng trống xa nhau) không còn trong code; nếu cần so lại thì phải làm lại.
 
 ### D16. Max gap (`MAX_GAP_S`)
-**Chốt 2026-11-07 (Duy): 24 giờ, là quy ước, không phải tối ưu.** Đo ở `tuning/11` (validation 115 user): tỉ lệ hai đầu khoảng trống gần nhau (≤ 200 m) giảm dần theo độ dài (62% ở 0,5–2 giờ, 28% ở 12–24 giờ, 20% ở 24–36 giờ), không có điểm gãy; cắt ở 12 giờ làm 22% user mất bằng chứng đêm và home đổi nơi ở 36% user; 24 giờ giữ 76,6% giờ đêm (trung vị). Không có đáp án để chứng minh một mức là đúng (A13); gán nhãn tay cũng phải suy từ chính dữ liệu GPS. Đo ở `tuning/11` (mục 2): bằng chứng đêm theo mức, độ nhạy khi đổi mức, tỉ lệ hai đầu khoảng trống gần nhau. Khi chọn phải ghi đúng là quy ước nằm trong vùng ổn định (nếu có), không nói là tối ưu.
+**Chốt 2026-11-07: 24 giờ, là quy ước, không phải tối ưu.** Đo ở `tuning/11` (validation 115 user): tỉ lệ hai đầu khoảng trống gần nhau (≤ 200 m) giảm dần theo độ dài (62% ở 0,5–2 giờ, 28% ở 12–24 giờ, 20% ở 24–36 giờ), không có điểm gãy; cắt ở 12 giờ làm 22% user mất bằng chứng đêm và home đổi nơi ở 36% user; 24 giờ giữ 76,6% giờ đêm (trung vị). Không có đáp án để chứng minh một mức là đúng (A13); gán nhãn tay cũng phải suy từ chính dữ liệu GPS. Đo ở `tuning/11` (mục 2): bằng chứng đêm theo mức, độ nhạy khi đổi mức, tỉ lệ hai đầu khoảng trống gần nhau. Khi chọn phải ghi đúng là quy ước nằm trong vùng ổn định (nếu có), không nói là tối ưu.
 
 ### D20. Gom địa điểm v2: DBSCAN, `eps` = 200 m, `min_samples` = 1
 **Chốt 2026-11-09: `eps` = 200 m; `min_samples` = 1.** `src/places/cluster_v2.py`, chọn ở `notebooks/tuning/14_place_eps.ipynb` (validation 115 user). v2 chỉ thay bước 6; stay point (bước 5) và bỏ phiếu (bước 7) giữ nguyên.
@@ -58,10 +58,10 @@ Giá trị khởi điểm của bài gốc; kiểm bằng tỷ lệ bị nhận 
 ### D17. Chia validation / test theo user, là bước đầu tiên sau khảo sát
 `src/eda/split.py`: chia theo user, không theo thời gian. Kết quả `data/split/users.csv`; mọi EDA chọn ngưỡng (notebook 05–13) chỉ đọc `split.val_users()`; pipeline làm sạch, stay, địa điểm vẫn chạy cho mọi user. Nhóm test dành cho đánh giá một lần (D19).
 
-**Chia lại ngày 2026-11-07 (Duy chốt): đổi tên validation / test, gom user trùng file, cân bằng theo phân phối và nhãn, tách khảo sát và tuning.**
+**Chia lại ngày 2026-11-07: đổi tên validation / test, gom user trùng file, cân bằng theo phân phối và nhãn, tách khảo sát và tuning.**
 - *Vì sao chia lại:* bản chia đầu không xét việc một số user có file `.plt` giống hệt từng byte với user khác (khoảng 6–8% dữ liệu thô): 17/60 user test dính dữ liệu trùng với nhóm kia. Kiểm tra trùng chỉ so md5 file, không đọc vị trí hay giờ giấc, nên không phải chọn ngưỡng và làm được trên toàn bộ dữ liệu trước khi chia.
 - *Cách chia (`split.py`, seed 20261107):* user có chung file (trực tiếp hoặc qua người khác) thuộc một cụm và vào cùng một nhóm. Chọn cách gán cụm bằng simulated annealing để phần test sát 1/3 ở các đại lượng: số user, số ngày, số file, số user có nhãn, số đoạn nhãn theo nhóm phương tiện (walk, bike, bus, car, rail, other), số user ở từng tứ phân vị số ngày. Chỉ dùng số đếm (tên file, dòng `labels.txt`, md5), không đọc quỹ đạo. Cụm có tổng số ngày vượt 1/6 tổng toàn bộ (cụm 15 user) cố định vào validation, vì nếu vào test thì một nhóm user chép lẫn nhau chiếm phần lớn test.
-- *Lọc bản sao trước, rồi chia (Duy chốt 2026-11-07):* user gần như toàn bộ là bản sao (`mostly_copy`, từ 90% file chép từ user khác) bị loại trước khi chia (cột `excluded`, `group = excluded`), chỉ giữ một đại diện cho mỗi nhóm bản sao: user 057 đại diện cho 057/094/150 (giống nhau hoàn toàn, không có bản gốc); user 075 được giữ vì có 509 đoạn nhãn riêng (quy tắc `KEEP_LABELS = 100` đoạn nhãn). 10 user bị loại: 059, 070, 088, 094, 108, 109, 124, 127, 150, 156. Lý do: không đếm đôi cùng một dữ liệu (không phải rò rỉ: cụm luôn cùng một nhóm). Chỉ dùng md5 file và số dòng `labels.txt`.
+- *Lọc bản sao trước, rồi chia (chốt 2026-11-07):* user gần như toàn bộ là bản sao (`mostly_copy`, từ 90% file chép từ user khác) bị loại trước khi chia (cột `excluded`, `group = excluded`), chỉ giữ một đại diện cho mỗi nhóm bản sao: user 057 đại diện cho 057/094/150 (giống nhau hoàn toàn, không có bản gốc); user 075 được giữ vì có 509 đoạn nhãn riêng (quy tắc `KEEP_LABELS = 100` đoạn nhãn). 10 user bị loại: 059, 070, 088, 094, 108, 109, 124, 127, 150, 156. Lý do: không đếm đôi cùng một dữ liệu (không phải rò rỉ: cụm luôn cùng một nhóm). Chỉ dùng md5 file và số dòng `labels.txt`.
 - *Kết quả (172 user được chia):* **115 validation / 57 test**; test chiếm 33,1% user, 32,2% ngày, 32,9% file, 35,4% user có nhãn (23/65), 30,5% đoạn nhãn. Theo nhóm phương tiện: walk 28,4%, bike 35,5%, bus 38,7%, rail 39,8%, **car chỉ 16,2%** (car tập trung ở cụm 15 user nằm cố định trong validation; không cân được nếu không tách cụm). 18 cụm từ 2 user (52 user), không cụm nào bị tách. Survey 01–04 vẫn chạy trên toàn bộ 182 user. Notebook tuning 05–08 đã chạy trên bản chia trước nên phải chạy lại.
 - *Hạn chế còn lại:* cụm 15 user chỉ nằm ở validation nên validation chứa nhiều dữ liệu của các user chép lẫn nhau (cụm 15 user), nên thống kê gộp ở validation lệch về nhóm đó. Mọi số và ngưỡng cũ thuộc bản chia cũ nên không dùng nữa.
 
@@ -75,7 +75,7 @@ Mã: `src/places/home_office_conf.py`, chạy `python -m src.places.home_office_
 - **Lịch lễ:** `src/preprocess/calendar_cn.py` (ngày nghỉ T2–T6 và ngày làm bù T7/CN 2007–2012, sinh từ thư viện `chinesecalendar`, chưa đối chiếu nguồn gốc). Chỉ áp dụng cho user có vị trí trung vị của stay trong hộp thô quanh Trung Quốc; user khác dùng T2–T6. Chỉ ảnh hưởng phiếu office.
 - **Confidence:** tính bằng %, lấy mẫu lại (bootstrap): bốc lại ngẫu nhiên, có hoàn lại, đúng số đêm (hoặc ngày làm việc) có phiếu của user, bỏ phiếu lại, lặp N lần (200, hạt giống 20261106); confidence = % lần vẫn ra cùng nơi (hoà thì chia đều). Một con số. Dưới số phiếu tối thiểu (A11, 7, chốt 2026-11-07 như quy ước): vẫn trả home / office, confidence để trống, cờ `few_nights` / `few_workdays`. Đây là độ chắc của quy tắc, không phải xác suất đúng (A13).
 - **Cờ:** `no_stays`, `no_night`, `no_workday`, `few_nights`, `few_workdays`, `home_eq_office`, `unstable_home`, `unstable_office`.
-- **Chưa làm:** giả định mỗi user một home cho cả thời gian dữ liệu (chuyển nhà chưa có cờ riêng; Duy không muốn thêm cờ `home_moved`); `cluster_v1` có thể cắt đôi một nơi (để v2 DBSCAN); chưa xử lý riêng ca đêm và WFH ngoài cờ `home_eq_office`.
+- **Chưa làm:** giả định mỗi user một home cho cả thời gian dữ liệu (chuyển nhà chưa có cờ riêng; không thêm cờ `home_moved`); `cluster_v1` có thể cắt đôi một nơi (để v2 DBSCAN); chưa xử lý riêng ca đêm và WFH ngoài cờ `home_eq_office`.
 - **Kết quả chạy:** đã chạy 2026-11-09 trên validation và test cho v1 và v2: `outputs/home_office_v1_val.csv`, `home_office_v2_val.csv`, `home_office_v1_test.csv`, `home_office_v2_test.csv`.
 
 ### D19. Kiểm tra trên nhóm test: chạy một lần sau khi khoá cấu hình
@@ -85,44 +85,44 @@ Chạy bằng `notebooks/test/15_test.ipynb` (T1 in cấu hình, T2–T4 đặt 
 3. **Đo đúng những thước đo đã dùng ở validation, đặt cạnh số validation:** tỉ lệ stay báo nhầm theo nhãn phương tiện; tỉ lệ có home / office và các cờ; phân bố confidence; nửa đầu / nửa sau trùng nơi theo mức confidence (notebook 13, mục 4).
 4. **Không sửa gì sau khi xem số test.** Lệch nhiều so với validation thì ghi là hạn chế. Nếu vẫn sửa thì số test cũ không còn là số test, phải ghi rõ.
 
-**Trạng thái: đã chạy một lần ngày 2026-11-09**, cho cả v1 và v2 (`outputs/home_office_v1_test.csv`, `home_office_v2_test.csv`); số và kết luận ở `notebooks/test/15_test.ipynb`. Hạn chế ghi nhận: v2 gộp home với office mới ở 6 trong 56 user test (validation 3 trong 108). Không chạy lại và không sửa ngưỡng dựa trên số test; sửa v2 thì phải tuning lại trên validation và ghi rõ số test này không còn sạch. (Lần chạy ngày 2026-11-06 thuộc bản chia cũ nên đã bỏ.) Test chỉ đo độ ổn định và khả năng lặp lại trên user mới, không đo độ đúng vì không có nhãn home / office (A13). Không làm gán tay (mentor chốt 2026-11-06).
+**Trạng thái: đã chạy một lần ngày 2026-11-09**, cho cả v1 và v2 (`outputs/home_office_v1_test.csv`, `home_office_v2_test.csv`); số và kết luận ở `notebooks/test/15_test.ipynb`. Hạn chế ghi nhận: v2 gộp home với office mới ở 6 trong 56 user test (validation 3 trong 108). Không chạy lại và không sửa ngưỡng dựa trên số test; sửa v2 thì phải tuning lại trên validation và ghi rõ số test này không còn sạch. (Lần chạy ngày 2026-11-06 thuộc bản chia cũ nên đã bỏ.) Test chỉ đo độ ổn định và khả năng lặp lại trên user mới, không đo độ đúng vì không có nhãn home / office (A13). Không làm gán tay (chốt 2026-11-06).
 
 ## Triển khai lên AWS (CP2)
 
 Quy trình, từng file và lệnh: `deploy/README.md`, `deploy/terraform/README.md`.
 
 ### D21. Tính trước theo lô, API chỉ tra cứu; chạy serverless (Lambda + API Gateway)
-**Chốt 2026-11-13 (Duy), thay phương án ECS Fargate trong `reports/cp2_phuong_an.html` (10/11).**
+**Chốt 2026-11-13, thay phương án ECS Fargate trong `reports/cp2_phuong_an.html` (10/11).**
 - **Cách làm:** Lambda batch (image, 2048 MB, tối đa 15 phút) tính home / office cho từng (user, version) và ghi `results/<version>/<user>.json` trên S3; API Gateway HTTP API gọi Lambda tra cứu (zip, 256 MB) chỉ đọc file đó. API không chạy model trong request.
 - **Vì sao:** chạy model nặng (user lớn nhất 2,16 triệu điểm, hơn 1 phút) nên không hợp làm trong request; home / office ít đổi (A17); lưu lượng thấp (A18) nên trả tiền theo lần gọi rẻ hơn máy chạy 24/7 (ECS Fargate + ALB ước 58–81 USD/tháng). Không cần load balancer: Lambda tự chạy nhiều bản song song.
 - **Đổi kèm:** bỏ upload GPS qua API (`POST /v1/infer`), API chỉ còn `GET /health` và `GET /v1/users/{user_id}/home-office` (`api/openapi.yaml` 1.0.0-cp2). Bản FastAPI cũ chuyển vào `archive/`.
 - **Hạn chế:** cold start khoảng 0,6 giây ở lần gọi đầu (D26); kết quả chỉ mới nhất tới lần chạy batch gần nhất.
 
 ### D22. Batch phục vụ chạy cho mọi user, không chia validation / test
-**Chốt 2026-11-16 (Duy).** `deploy/batch/run_batch.ps1` lấy danh sách từ thư mục GPS (182 user), không bỏ 10 user bản sao. Chia tập (D17) và test một lần (D19) chỉ để đánh giá; phục vụ thì API phải trả cho mọi user. Không sửa ngưỡng sau khi thấy kết quả nhóm test, nên số test 09/11 vẫn giữ nguyên giá trị.
+**Chốt 2026-11-16.** `deploy/batch/run_batch.ps1` lấy danh sách từ thư mục GPS (182 user), không bỏ 10 user bản sao. Chia tập (D17) và test một lần (D19) chỉ để đánh giá; phục vụ thì API phải trả cho mọi user. Không sửa ngưỡng sau khi thấy kết quả nhóm test, nên số test 09/11 vẫn giữ nguyên giá trị.
 Kết quả 16/11: 364 lần gọi, 0 lỗi, mỗi version 166 user có kết quả; 16 user không có stay hoặc không đủ đêm / ngày làm việc nên không ghi file, API trả 404 `user_not_found`.
 
 ### D23. Hạ tầng bằng Terraform; dữ liệu và image để ngoài
-**Chốt 2026-11-13 (Duy).** `deploy/terraform/` quản lý 2 Lambda, role (quyền S3 tối thiểu), hàng đợi lỗi, API Gateway, alias canary, alarm, ngân sách. Bucket S3 và kho ECR chỉ đọc (data source) nên `terraform destroy` không xoá được dữ liệu; provider khoá vào đúng tài khoản 451071929893. Chuyển từ script PowerShell bằng `import` (17 tài nguyên, 0 xoá), sau đó xoá script cũ. Image build trong CloudShell và dữ liệu upload bằng script, ngoài Terraform.
+**Chốt 2026-11-13.** `deploy/terraform/` quản lý 2 Lambda, role (quyền S3 tối thiểu), hàng đợi lỗi, API Gateway, alias canary, alarm, ngân sách. Bucket S3 và kho ECR chỉ đọc (data source) nên `terraform destroy` không xoá được dữ liệu; provider khoá vào đúng tài khoản 451071929893. Chuyển từ script PowerShell bằng `import` (17 tài nguyên, 0 xoá), sau đó xoá script cũ. Image build trong CloudShell và dữ liệu upload bằng script, ngoài Terraform.
 
 ### D24. Model registry: SageMaker Model Registry, API đọc bản sao ở S3
-**Chốt 2026-11-16 (Duy).** Group `home-office`, mỗi version một Model Package (con trỏ tới `params.json`, thư mục kết quả, commit, tham số, image). Đúng một version `Approved` = version mặc định của API.
+**Chốt 2026-11-16.** Group `home-office`, mỗi version một Model Package (con trỏ tới `params.json`, thư mục kết quả, commit, tham số, image). Đúng một version `Approved` = version mặc định của API.
 - `register_models.py set-default <v>` vừa duyệt trên registry vừa ghi `results/_default.json`; Lambda tra cứu chỉ đọc file này (nhớ 60 giây), không gọi registry ở mỗi request (nhanh, ít phụ thuộc). Đổi version mặc định chỉ qua lệnh này để registry và API không lệch nhau.
 - Chọn SageMaker thay MLflow: dịch vụ có sẵn, không phải dựng máy chủ, cùng tài khoản và IAM. Không có phần theo dõi thí nghiệm như MLflow (vẫn dùng `mlflow_track.py` cục bộ cho việc đó).
 - **Hiện tại:** `dbscan-v2` Approved (đặt trong lúc demo canary 16/11). Chọn version chính thức cho bản nộp **chưa chốt**: hai bản trùng home 93%, office 100% (D20), không có nhãn để biết bản nào đúng hơn (A13).
 
 ### D25. Deploy strategy: canary bằng Lambda alias có trọng số
-**Chốt 2026-11-16 (Duy).** Lambda tra cứu bật `publish` (mỗi lần đổi code / cấu hình thành một bản đánh số); alias `live` trỏ bản chính và gửi một phần traffic sang bản mới nhất; API Gateway gọi alias. Điều khiển bằng `deploy/terraform/canary.auto.tfvars`; đo bằng `deploy/lookup/canary_check.ps1` (header `X-Lambda-Version`).
+**Chốt 2026-11-16.** Lambda tra cứu bật `publish` (mỗi lần đổi code / cấu hình thành một bản đánh số); alias `live` trỏ bản chính và gửi một phần traffic sang bản mới nhất; API Gateway gọi alias. Điều khiển bằng `deploy/terraform/canary.auto.tfvars`; đo bằng `deploy/lookup/canary_check.ps1` (header `X-Lambda-Version`).
 - **Vì sao canary bằng alias:** kiến trúc đã là Lambda, chia traffic có sẵn và không tốn thêm; HTTP API không chia theo %; ALB chỉ dùng cho máy chủ / container.
 - **Demo 16/11:** 10% (đo được 11%), 50%, 100% sang bản ghim `dbscan-v2`; bản cố ý lỗi ở 10% cho 12% lỗi 500, alarm `home-office-api-5xx` kêu và gửi email; rollback về 0% lỗi; dọn về bản theo registry.
 - **Shadow** chỉ giải thích (người dùng không nhận kết quả bản mới; hợp so model khi không có nhãn), chưa cài. **Blue-green** là trường hợp đặc biệt của alias (chuyển 0 → 100% một lần).
 - **Hạn chế:** rollback bằng tay (`canary_weight = 0`), chưa tự động theo alarm.
 
 ### D26. Không giữ ấm Lambda tra cứu
-**Chốt 2026-11-13 (Duy).** Đo sau hơn 1 giờ không gọi: khởi động 496 ms + xử lý 139 ms ở lần đầu; khi ấm 24–36 ms. Chậm thêm khoảng 0,6 giây ở lần đầu là chấp nhận được với đồ án, nên bỏ lịch EventBridge gọi mỗi 5 phút (dù gần như miễn phí). Trước khi demo gọi `/health` một lần.
+**Chốt 2026-11-13.** Đo sau hơn 1 giờ không gọi: khởi động 496 ms + xử lý 139 ms ở lần đầu; khi ấm 24–36 ms. Chậm thêm khoảng 0,6 giây ở lần đầu là chấp nhận được với đồ án, nên bỏ lịch EventBridge gọi mỗi 5 phút (dù gần như miễn phí). Trước khi demo gọi `/health` một lần.
 
 ### D27. Theo dõi và chi phí
-**Chốt 2026-11-16.** 3 alarm CloudWatch (Lambda tra cứu lỗi, Lambda batch lỗi, API ≥ 5 lỗi 5xx trong 5 phút) gửi email qua SNS; ngân sách 5 USD/tháng (email khi thật vượt 80% hoặc dự báo vượt 100%). Email để trong `deploy/terraform/terraform.tfvars`, không đưa lên git. Hàng đợi lỗi SQS của batch vẫn chạy nhưng bỏ khỏi sơ đồ trình bày (Duy, 13/11).
+**Chốt 2026-11-16.** 3 alarm CloudWatch (Lambda tra cứu lỗi, Lambda batch lỗi, API ≥ 5 lỗi 5xx trong 5 phút) gửi email qua SNS; ngân sách 5 USD/tháng (email khi thật vượt 80% hoặc dự báo vượt 100%). Email để trong `deploy/terraform/terraform.tfvars`, không đưa lên git. Hàng đợi lỗi SQS của batch vẫn chạy nhưng bỏ khỏi sơ đồ trình bày (13/11).
 
 ### D28. Đăng nhập: thiết kế OAuth 2.0 (Cognito, Google), hiện tắt
 `api/openapi.yaml` mô tả token Bearer JWT và 401 / 403; Lambda tra cứu có công tắc `AUTH_MODE=jwt` (so claim `sub` với `user_id`). Hiện `AUTH_MODE=none`, API Gateway chưa gắn bộ kiểm tra JWT, nên ai có địa chỉ cũng gọi được; giới hạn 20 request/giây và ngân sách hạn chế thiệt hại. Bật hay không trong CP2: **chưa chốt** (cần tạo Cognito User Pool, thêm khoảng 1 ngày).

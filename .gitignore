@@ -11,14 +11,7 @@ outputs/duplicates/
 reports/_fig_slide/
 # store SQLite của API FastAPI cũ (tạo lại bằng archive/api_fastapi/build_store.py)
 archive/api_fastapi/store/
-# kết quả tạm của mlflow_track.py
-results/
 docs/
-
-# ---- MLflow chạy trên máy (mlflow_track.py) ----
-mlflow.db
-mlruns/
-mlartifacts/
 
 # ---- deploy: log lần chạy, kết quả đo, gói tạm, địa chỉ API ----
 deploy/batch/runs/

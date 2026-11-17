@@ -4,7 +4,7 @@ Mã A1, A2, ... giữ nguyên để code và notebook tham chiếu; mã A8 đã 
 
 **Trạng thái:** tất cả ngưỡng đã chốt (A3, A5, A6, A7 ở tuning 05–08; A10, A12, A14 ở tuning 09–12, ngày 07/11; A11, A15 là quy ước, A11 kiểm lại ở tuning/13; A16 ở tuning/14, ngày 09/11).
 Ngưỡng chọn trước 07/11 (trên bản chia cũ có rò rỉ, D17, hoặc trên toàn bộ 182 user) đã bị xoá khỏi tài liệu.
-Các hằng số trong code (`MAX_GAP_S`, `DIST_M`, `TIME_S`, `DUP_MAX_DIST_M`, `MIN_VOTE_MIN`, `N_MIN_NIGHTS`...) và `params/*.json` là các giá trị đã chốt ở bảng dưới.
+Các hằng số trong code (`MAX_GAP_S`, `DIST_M`, `TIME_S`, `DUP_MAX_DIST_M`, `MIN_VOTE_MIN`, `N_MIN_NIGHTS`...) và `params/*.json` là các giá trị đã chốt ở bảng dưới. Giả định của phần triển khai (CP2): A17, A18.
 "Mục N" (đánh số riêng trong từng notebook, ghi kèm tên notebook) là mục trong `notebooks/survey/` (khảo sát toàn bộ dữ liệu, chỉ mô tả), `notebooks/tuning/` (chọn ngưỡng, chỉ nhóm validation) hoặc `notebooks/test/` (bảng ở README). Quyết định: `notes/decisions.md`.
 
 ## Tóm tắt
@@ -26,6 +26,8 @@ Các hằng số trong code (`MAX_GAP_S`, `DIST_M`, `TIME_S`, `DUP_MAX_DIST_M`, 
 | A14 | Tham số stay point | D = 200 m, T = 30 phút | chốt 2026-11-07 (tuning/09) |
 | A15 | Bán kính gom địa điểm (v1) | 200 m (bằng D) | chốt 2026-11-07 như quy ước |
 | A16 | Gom địa điểm v2 (DBSCAN) | `eps` 200 m, `min_samples` 1 | chốt 2026-11-09 như quy ước (tuning/14) |
+| A17 | Home / office ít đổi, tính theo lô là đủ | tính lại khi có dữ liệu mới hoặc đổi ngưỡng | giả định thiết kế (CP2, D21) |
+| A18 | Lưu lượng gọi API thấp | vài request/giây; giới hạn 20/giây, dồn 50 | giả định thiết kế (CP2, D21, D27) |
 
 ## Chi tiết
 
@@ -80,3 +82,9 @@ Gom tham lam quanh stay neo dài nhất (`src/places/cluster_v1.py`). Hạn ch�
 
 ### A16. Tham số gom địa điểm (v2)
 **Chốt 2026-11-09 (Duy): `eps` = 200 m, `min_samples` = 1, là quy ước trong vùng ổn định (150–200 m), chưa có số đo cho thấy hơn 150 m.** `src/places/cluster_v2.py` (`DBSCAN`, viết bằng numpy). Căn cứ và hạn chế: D20 (`tuning/14`). `min_samples` = 1 vì mỗi stay đã ≥ 30 phút (A14); ngưỡng phiếu ở A11. Đã quét 2, 3, 5 (D20): mất home / office ở nhiều user hơn và gộp mới không giảm, nên giữ 1. Cắt đôi một nơi (nghi ngờ ở A15) chưa có chỉ số riêng; chaining (gộp home với office) là rủi ro chính của v2.
+
+### A17. Home / office ít đổi, nên tính theo lô là đủ
+Kết quả của một user được tính lại khi có GPS mới hoặc đổi ngưỡng, không tính lại ở mỗi request (D21). Giả định nhà và nơi làm việc của một người đổi chậm (tính bằng tháng), nên kết quả của lần batch gần nhất vẫn dùng được. Dữ liệu GeoLife là lịch sử cố định (2007–2012) nên giả định này không ảnh hưởng bản demo. Hạn chế: người mới chuyển nhà nhận kết quả cũ tới lần batch sau; chưa có cờ chuyển nhà (D18).
+
+### A18. Lưu lượng gọi API thấp
+Thiết kế cho lưu lượng của đồ án: vài request mỗi giây khi demo. Giới hạn API 20 request/giây, dồn tối đa 50; tài khoản cho 1.000 bản Lambda chạy cùng lúc (kiểm 13/11). Ước tính nếu bị gọi kín 20 request/giây cả tháng thì chi phí khoảng 100 USD, nên đặt ngân sách cảnh báo 5 USD/tháng (D27). Đây là ước tính từ bảng giá, chưa đo trên hoá đơn. Lưu lượng lớn hơn nhiều thì cần đánh giá lại D21 (cold start, giới hạn, có thể cache).

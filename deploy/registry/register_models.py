@@ -1,4 +1,4 @@
-"""Ghi hai version model vào SageMaker Model Registry (group `home-office`) và chọn version mặc định.
+"""Bước 7 của quy trình: ghi các version model vào SageMaker Model Registry (group `home-office`) và chọn version mặc định.
 
 Registry chỉ lưu con trỏ và metadata (không lưu file): mỗi Model Package trỏ tới params.json và thư mục kết quả trên S3.
 Lambda tra cứu không gọi registry: `set-default` duyệt version trên registry và ghi luôn results/_default.json, Lambda đọc file đó.
@@ -6,13 +6,14 @@ Lambda tra cứu không gọi registry: `set-default` duyệt version trên regi
 Chạy từ thư mục Home_Office (cần AWS CLI profile `home-office` đã đăng nhập và `pip install boto3 "botocore[crt]"`; gói crt cần để đọc phiên đăng nhập của `aws login`):
     python deploy/registry/register_models.py register            # tạo group + 2 Model Package (bỏ qua version đã có)
     python deploy/registry/register_models.py list                # liệt kê version, trạng thái duyệt
-    python deploy/registry/register_models.py set-default dbscan-v2   # version này Approved, các version khác PendingManualApproval
+    python deploy/registry/register_models.py set-default dbscan-v2   # version này Approved, còn lại Pending; ghi results/_default.json
     python deploy/registry/register_models.py default             # in version đang Approved (JSON)
 
 Cần có sẵn: params/<version>.json (python -m src.params write) và đã đẩy lên S3 (deploy/data/upload_params.ps1).
 Quyền IAM cần: sagemaker:CreateModelPackageGroup, CreateModelPackage, ListModelPackages, DescribeModelPackage,
-UpdateModelPackage, sts:GetCallerIdentity, s3:GetObject (kiểm tra file params), ecr (SageMaker kiểm tra image).
-Chưa chạy thử trên AWS thật: nếu CreateModelPackage báo lỗi về InferenceSpecification hoặc image, thử `register --no-inference-spec`.
+UpdateModelPackage, sts:GetCallerIdentity, s3:GetObject (kiểm tra file params), s3:PutObject (ghi results/_default.json),
+ecr (SageMaker kiểm tra image).
+Đã chạy 16/11/2026: 2 version, khai báo image chạy được. Nếu sau này CreateModelPackage báo lỗi về image, thử `register --no-inference-spec`.
 """
 from __future__ import annotations
 

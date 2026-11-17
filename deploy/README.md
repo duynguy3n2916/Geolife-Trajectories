@@ -6,7 +6,7 @@ Vùng: Singapore (`ap-southeast-1`). Profile AWS CLI: `home-office` (đăng nh�
 
 Chia việc:
 - **Hạ tầng** (2 Lambda, role, hàng đợi lỗi, API Gateway, alias canary, alarm, ngân sách): Terraform, trong `terraform\`
-  (xem `terraform\README.md`; mới dùng Terraform thì đọc `terraform\HOC_TERRAFORM.md`).
+  (xem `terraform\README.md`).
   Đừng sửa hạ tầng bằng console hay AWS CLI: lần `terraform plan` sau sẽ thấy khác và đề nghị sửa ngược lại.
 - **Dữ liệu, image, chạy batch, thử API**: các script `.ps1` trong thư mục này.
 - **Version model**: SageMaker Model Registry, script `registry\register_models.py`.

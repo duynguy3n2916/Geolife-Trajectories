@@ -1,6 +1,6 @@
 # deploy/terraform: hạ tầng AWS của Home/Office bằng Terraform
 
-Toàn bộ hạ tầng AWS của dự án (bước 4 trong `deploy\README.md`). Mới dùng Terraform: đọc `HOC_TERRAFORM.md` trước.
+Toàn bộ hạ tầng AWS của dự án (bước 4 trong `deploy\README.md`).
 
 | File | Nội dung |
 |---|---|

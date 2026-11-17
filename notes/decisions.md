@@ -89,7 +89,7 @@ Chạy bằng `notebooks/test/15_test.ipynb` (T1 in cấu hình, T2–T4 đặt 
 
 ## Triển khai lên AWS (CP2)
 
-Chi tiết từng file và lệnh: `notes/giai_thich_cp2.md`; quy trình: `deploy/README.md`.
+Quy trình, từng file và lệnh: `deploy/README.md`, `deploy/terraform/README.md`.
 
 ### D21. Tính trước theo lô, API chỉ tra cứu; chạy serverless (Lambda + API Gateway)
 **Chốt 2026-11-13 (Duy), thay phương án ECS Fargate trong `reports/cp2_phuong_an.html` (10/11).**

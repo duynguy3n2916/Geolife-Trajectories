@@ -1,6 +1,6 @@
 # Nhật ký quyết định (bản hiện hành)
 
-**2026-11-07 :** mọi ngưỡng đã chọn trước ngày này và số liệu căn cứ (D5, D9, D13, D16, D18, D19, v.v.) đã bị xoá khỏi tài liệu, vì chúng được chọn trên bản chia cũ (có rò rỉ, D17) hoặc trên toàn bộ 182 user. Ngưỡng chọn lại ở `notebooks/tuning/` (chỉ nhóm validation), ghi vào đây và `assumptions.md` sau khi chạy. Các giá trị hằng số trong code hiện là **giá trị tạm để pipeline chạy**, chưa phải giá trị đã chọn. Chỉ giữ ở đây: quy trình, cách làm, và các lựa chọn không phải ngưỡng.
+**2026-11-07:** mọi ngưỡng chọn trước ngày này (trên bản chia cũ có rò rỉ, D17, hoặc trên toàn bộ 182 user) đã bị xoá. Ngưỡng chọn lại ở `notebooks/tuning/` (chỉ nhóm validation), đã chốt 07–09/11 và ghi trong `assumptions.md`; hằng số trong code và `params/*.json` là các giá trị đã chốt. Test chạy một lần ngày 09/11 (D19).
 
 Mã D1, D2, ... giữ nguyên; mã đã bỏ (D6, D10, D11, D15) không dùng lại. Ngưỡng và giả định: `notes/assumptions.md`.
 

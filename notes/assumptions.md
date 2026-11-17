@@ -2,9 +2,9 @@
 
 Mã A1, A2, ... giữ nguyên để code và notebook tham chiếu; mã A8 đã bỏ, không dùng lại.
 
-**Trạng thái (2026-11-07, Duy yêu cầu làm lại từ đầu):** tất cả ngưỡng đã chốt (A3, A5, A6, A7 ở tuning 05–08; A10, A12, A14 ở tuning 09–12; A11, A15 là quy ước, A11 kiểm lại ở tuning/13).
- mọi ngưỡng được chọn trước ngày này (và các số liệu căn cứ) đã bị xoá khỏi tài liệu, vì chúng được chọn trên bản chia dữ liệu cũ (có rò rỉ, D17) hoặc trên toàn bộ 182 user. Các ngưỡng sẽ được đo lại ở `notebooks/tuning/` (chỉ nhóm validation) rồi mới ghi vào đây cùng số liệu chạy lại.
-Các hằng số trong code (`MAX_GAP_S`, `DIST_M`, `TIME_S`, `DUP_MAX_DIST_M`, `MIN_VOTE_MIN`, `N_MIN_NIGHTS`...) hiện là **giá trị tạm để pipeline chạy được, chưa phải giá trị đã chọn**; sửa lại khi tuning xong.
+**Trạng thái:** tất cả ngưỡng đã chốt (A3, A5, A6, A7 ở tuning 05–08; A10, A12, A14 ở tuning 09–12, ngày 07/11; A11, A15 là quy ước, A11 kiểm lại ở tuning/13; A16 ở tuning/14, ngày 09/11).
+Ngưỡng chọn trước 07/11 (trên bản chia cũ có rò rỉ, D17, hoặc trên toàn bộ 182 user) đã bị xoá khỏi tài liệu.
+Các hằng số trong code (`MAX_GAP_S`, `DIST_M`, `TIME_S`, `DUP_MAX_DIST_M`, `MIN_VOTE_MIN`, `N_MIN_NIGHTS`...) và `params/*.json` là các giá trị đã chốt ở bảng dưới.
 "Mục N" (đánh số riêng trong từng notebook, ghi kèm tên notebook) là mục trong `notebooks/survey/` (khảo sát toàn bộ dữ liệu, chỉ mô tả), `notebooks/tuning/` (chọn ngưỡng, chỉ nhóm validation) hoặc `notebooks/test/` (bảng ở README). Quyết định: `notes/decisions.md`.
 
 ## Tóm tắt
@@ -76,7 +76,7 @@ GeoLife không có nhãn home/office. Mọi kết quả chỉ có độ nhạy v
 
 ### A15. Bán kính địa điểm (v1)
 **Chốt 2026-11-07 (Duy): 200 m, bằng D, là quy ước, chưa có số đo riêng.**
-Chưa chọn. Gom tham lam quanh stay neo dài nhất (`src/places/cluster_v1.py`). Hạn chế: hai nơi gần nhau dưới bán kính bị gộp, địa điểm rộng hơn bị tách, kết quả phụ thuộc thứ tự neo; nghi ngờ chưa kiểm: một nơi bị cắt đôi làm chênh lệch phiếu giữa hai nơi dẫn đầu thấp giả tạo. v2 dùng DBSCAN (CP2).
+Gom tham lam quanh stay neo dài nhất (`src/places/cluster_v1.py`). Hạn chế: hai nơi gần nhau dưới bán kính bị gộp, địa điểm rộng hơn bị tách, kết quả phụ thuộc thứ tự neo; nghi ngờ chưa kiểm: một nơi bị cắt đôi làm chênh lệch phiếu giữa hai nơi dẫn đầu thấp giả tạo. v2 dùng DBSCAN (CP2).
 
 ### A16. Tham số gom địa điểm (v2)
 **Chốt 2026-11-09 (Duy): `eps` = 200 m, `min_samples` = 1, là quy ước trong vùng ổn định (150–200 m), chưa có số đo cho thấy hơn 150 m.** `src/places/cluster_v2.py` (`DBSCAN`, viết bằng numpy). Căn cứ và hạn chế: D20 (`tuning/14`). `min_samples` = 1 vì mỗi stay đã ≥ 30 phút (A14); ngưỡng phiếu ở A11. Đã quét 2, 3, 5 (D20): mất home / office ở nhiều user hơn và gộp mới không giảm, nên giữ 1. Cắt đôi một nơi (nghi ngờ ở A15) chưa có chỉ số riêng; chaining (gộp home với office) là rủi ro chính của v2.

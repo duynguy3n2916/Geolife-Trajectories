@@ -23,10 +23,7 @@ reports/duplicates/
 reports/_fig_slide/
 
 docs/
-# MLflow local (mlflow_track.py)
-mlflow.db
-mlruns/
-mlartifacts/
+# Kết quả tạm
 results/
 
 # deploy: log lần chạy, gói tạm, địa chỉ API

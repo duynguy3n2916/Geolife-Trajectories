@@ -25,10 +25,3 @@ function Assert-Ok([string]$What) { if ($LASTEXITCODE -ne 0) { throw "Lỗi: $Wh
 
 # In tiêu đề một bước.
 function Write-Step([string]$Text) { Write-Host "== $Text" -ForegroundColor Cyan }
-
-# Ghi một chuỗi JSON ra file tạm (không BOM) và trả đường dẫn, để truyền cho AWS CLI bằng file://...
-function New-TempJson([string]$Name, [string]$Json) {
-    $path = Join-Path $env:TEMP $Name
-    [IO.File]::WriteAllText($path, $Json)
-    return $path
-}

@@ -12,7 +12,7 @@ Chạy từ thư mục Home_Office (cần AWS CLI profile `home-office` đã đ�
 
 Số "Version" trên registry do AWS tự tăng theo thứ tự tạo và không đổi được, nên `register` tạo theo MODEL_ORDER
 (heuristic-v1 trước = Version 1, dbscan-v2 sau = Version 2). Muốn đánh số lại thì chỉ có cách `reset --yes` rồi `register`.
-Tên model nằm ở Description, tag `model_version` và metadata `model_version`.
+Tên model nằm ở Description và metadata `model_version` (AWS không cho gắn tag vào từng version, chỉ vào group).
 
 Cần có sẵn: params/<version>.json (python -m src.params write) và đã đẩy lên S3 (deploy/data/upload_params.ps1).
 Quyền IAM cần: sagemaker:CreateModelPackageGroup, CreateModelPackage, ListModelPackages, DescribeModelPackage,
@@ -85,7 +85,8 @@ def _ensure_group(sm) -> None:
         print(f"group {GROUP}: đã có")
     except sm.exceptions.ClientError:
         sm.create_model_package_group(ModelPackageGroupName=GROUP,
-                                      ModelPackageGroupDescription="Home/Office GeoLife: các version model (heuristic-v1, dbscan-v2)")
+                                      ModelPackageGroupDescription="Home/Office GeoLife: các version model (heuristic-v1, dbscan-v2)",
+                                      Tags=[{"Key": "project", "Value": "home-office"}])   # tag chỉ đặt được ở group, không ở từng version
         print(f"group {GROUP}: đã tạo")
 
 
@@ -124,7 +125,6 @@ def cmd_register(args) -> None:
             print(f"Cảnh báo: chưa thấy s3://{bucket}/models/{version}/params.json (chạy deploy\\data\\upload_params.ps1)")
         params = json.loads(f.read_text(encoding="utf-8"))
         kw = dict(ModelPackageGroupName=GROUP, ModelPackageDescription=MODEL_DESC.get(version, f"{version}: gom địa điểm"),
-                  Tags=[{"Key": "model_version", "Value": version}, {"Key": "project", "Value": "home-office"}],
                   CustomerMetadataProperties=build_metadata(version, params, bucket, commit, now),
                   MetadataProperties={"CommitId": commit},
                   ModelApprovalStatus="Approved" if version == args.default else "PendingManualApproval")

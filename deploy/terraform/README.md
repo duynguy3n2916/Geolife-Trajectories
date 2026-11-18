@@ -55,6 +55,7 @@ Terraform in lại plan và hỏi; gõ `yes` mới thực hiện.
 | Ghi địa chỉ API cho `test.ps1`, `canary_check.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` |
 | Xem Terraform đang quản lý gì | `terraform state list` |
 | Ghi app client id cho `get_token.ps1`, `test.ps1`, demo UI | `terraform output -raw cognito_client_id \| Set-Content -Encoding ascii ..\..\api\cognito_client_id.txt` |
+| Ghi địa chỉ trang đăng nhập Cognito cho demo UI | `terraform output -raw cognito_domain \| Set-Content -Encoding ascii ..\..\api\cognito_domain.txt` |
 
 ## Báo động và ngân sách (`monitoring.tf`)
 
@@ -101,6 +102,7 @@ cd deploy\terraform
 terraform plan
 terraform apply
 terraform output -raw cognito_client_id | Set-Content -Encoding ascii ..\..\api\cognito_client_id.txt
+terraform output -raw cognito_domain | Set-Content -Encoding ascii ..\..\api\cognito_domain.txt
 cd ..\..
 .\deploy\cognito_users.ps1
 .\api\test.ps1
@@ -109,6 +111,11 @@ cd ..\..
 `cognito_users.ps1` tạo mỗi user GeoLife một tài khoản `userNNN@example.com` (`user000` đến `user181`, chỉ xem user của mình)
 và `admin@example.com` (nhóm admin), cùng một mật khẩu; khoảng 10 phút. Chỉ vài user: `.\deploy\cognito_users.ps1 -Users 002,153`. Đặt `$env:HO_DEMO_PASSWORD = "..."` trước thì các script không hỏi lại mật khẩu.
 Lấy token để gọi tay: `.\api\get_token.ps1 user153@example.com`.
+
+Mock app đặt xe (`demo_ui\serve.py`) đăng nhập bằng OAuth 2.0 Authorization Code + PKCE: chuyển sang trang đăng nhập
+của Cognito (`terraform output cognito_domain`), Cognito trả code về `http://localhost:8080/auth/callback`, server đổi code lấy token.
+Chạy demo ở địa chỉ khác (cổng khác, máy khác): thêm địa chỉ đó vào `app_urls` trong `terraform.tfvars` rồi apply,
+và đặt `$env:APP_URL` trước khi chạy `serve.py`. Script thử (`test.ps1`, `get_token.ps1`) vẫn dùng `USER_PASSWORD_AUTH`.
 
 Tắt đăng nhập: thêm dòng `auth_enabled = false` vào `terraform.tfvars`, `plan`, `apply`; thử bằng `.\api\test.ps1 -NoAuth`.
 User Pool và tài khoản vẫn giữ. Bật hay tắt đều tạo một bản Lambda tra cứu mới (đổi biến `AUTH_MODE`); alias `live` theo bản đó

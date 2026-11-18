@@ -5,8 +5,12 @@
 #   - Thuộc tính riêng custom:geolife_id: mã user GeoLife (ví dụ "002") mà tài khoản được xem.
 #     App client không có quyền ghi thuộc tính này, nên người dùng không tự đổi được; chỉ admin (AWS CLI) đặt.
 #   - Nhóm "admin": xem được kết quả của mọi user_id.
-#   - App client "home-office-app": không có secret (app chạy trên máy người dùng không giữ được secret),
-#     đăng nhập bằng USER_PASSWORD_AUTH, token sống 60 phút.
+#   - App client "home-office-app": không có secret (app chạy trên máy người dùng không giữ được secret), token sống 60 phút.
+#     Hai cách đăng nhập:
+#       a) OAuth 2.0 Authorization Code + PKCE qua trang đăng nhập của Cognito (Hosted UI, domain bên dưới):
+#          app chuyển người dùng sang trang Cognito, Cognito trả "code" về callback_urls, app đổi code lấy token.
+#          Mock app đặt xe (demo_ui/serve.py) dùng cách này.
+#       b) USER_PASSWORD_AUTH (gửi thẳng email + mật khẩu): chỉ cho script thử (api\test.ps1, get_token.ps1).
 #   - API Gateway gắn JWT authorizer vào route /v1/users/{user_id}/home-office; /health vẫn mở.
 #     Token gửi lên là ID token (có claim custom:geolife_id và cognito:groups; access token không có custom:geolife_id).
 #     API Gateway tự kiểm chữ ký, hạn, issuer và audience (= client id); sai thì trả 401, Lambda không chạy.
@@ -15,6 +19,12 @@
 # Chi phí: gói LITE, miễn phí 10.000 người dùng hoạt động mỗi tháng. Không gửi email (tài khoản tạo bằng
 # deploy\cognito_users.ps1 với --message-action SUPPRESS), nên không tốn SES.
 # Tắt đăng nhập (quay về như trước): auth_enabled = false trong terraform.tfvars rồi apply. User Pool vẫn giữ.
+
+variable "app_urls" {
+  description = "Địa chỉ của app được Cognito chuyển về sau đăng nhập / đăng xuất (http chỉ được dùng cho localhost)."
+  type        = list(string)
+  default     = ["http://localhost:8080"]
+}
 
 variable "auth_enabled" {
   description = "true: route tra cứu cần token Cognito (JWT authorizer + AUTH_MODE=jwt). false: mở như trước."
@@ -64,6 +74,15 @@ resource "aws_cognito_user_pool" "main" {
   }
 }
 
+# Domain của trang đăng nhập Cognito: https://home-office-<account>.auth.ap-southeast-1.amazoncognito.com
+# (prefix phải duy nhất trong vùng, nên gắn số tài khoản). managed_login_version = 1: trang đăng nhập cổ điển,
+# có sẵn ở gói LITE, không cần tạo giao diện riêng.
+resource "aws_cognito_user_pool_domain" "main" {
+  domain                = "home-office-${var.account_id}"
+  user_pool_id          = aws_cognito_user_pool.main.id
+  managed_login_version = 1
+}
+
 resource "aws_cognito_user_group" "admin" {
   name         = "admin"
   user_pool_id = aws_cognito_user_pool.main.id
@@ -87,6 +106,15 @@ resource "aws_cognito_user_pool_client" "app" {
     access_token  = "minutes"
     refresh_token = "days"
   }
+
+  # OAuth 2.0: chỉ luồng Authorization Code (app dùng PKCE), đăng nhập bằng tài khoản trong User Pool.
+  # Scope openid: ID token chứa mọi thuộc tính client được đọc (gồm custom:geolife_id) và cognito:groups.
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = [for u in var.app_urls : "${u}/auth/callback"]
+  logout_urls                          = [for u in var.app_urls : "${u}/"]
 
   # Đọc được geolife_id; KHÔNG cho ghi (người dùng không tự đổi mình thành user khác).
   read_attributes  = ["email", "email_verified", "custom:geolife_id"]
@@ -114,6 +142,11 @@ output "cognito_user_pool_id" {
 output "cognito_client_id" {
   description = "App client id: dùng để lấy token (api\\get_token.ps1 đọc bản chép ở api\\cognito_client_id.txt)."
   value       = aws_cognito_user_pool_client.app.id
+}
+
+output "cognito_domain" {
+  description = "Địa chỉ trang đăng nhập Cognito (demo_ui\\serve.py đọc bản chép ở api\\cognito_domain.txt)."
+  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.region}.amazoncognito.com"
 }
 
 output "auth_enabled" {

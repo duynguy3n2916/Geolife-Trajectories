@@ -106,8 +106,8 @@ cd ..\..
 .\api\test.ps1
 ```
 
-`cognito_users.ps1` tạo 3 tài khoản demo cùng một mật khẩu: `user002@example.com` (user 002), `user153@example.com` (user 153),
-`admin@example.com` (nhóm admin). Đặt `$env:HO_DEMO_PASSWORD = "..."` trước thì các script không hỏi lại mật khẩu.
+`cognito_users.ps1` tạo mỗi user GeoLife một tài khoản `userNNN@example.com` (`user000` đến `user181`, chỉ xem user của mình)
+và `admin@example.com` (nhóm admin), cùng một mật khẩu; khoảng 10 phút. Chỉ vài user: `.\deploy\cognito_users.ps1 -Users 002,153`. Đặt `$env:HO_DEMO_PASSWORD = "..."` trước thì các script không hỏi lại mật khẩu.
 Lấy token để gọi tay: `.\api\get_token.ps1 user153@example.com`.
 
 Tắt đăng nhập: thêm dòng `auth_enabled = false` vào `terraform.tfvars`, `plan`, `apply`; thử bằng `.\api\test.ps1 -NoAuth`.

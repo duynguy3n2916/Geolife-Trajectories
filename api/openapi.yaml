@@ -37,7 +37,7 @@ info:
        Kiểm quyền xảy ra trước khi đọc kết quả, nên người dùng thường không dò được ai có hay không có kết quả (404).
     Phải gửi **ID token**, không phải access token: chỉ ID token có claim `custom:geolife_id`.
     Mã `user_id` trong bản demo là mã GeoLife, nên tài khoản do admin tạo (không cho tự đăng ký); người dùng không tự đổi
-    được `custom:geolife_id`. Tài khoản demo: `user002@example.com` (user 002), `user153@example.com` (user 153),
+    được `custom:geolife_id`. Tài khoản demo: `userNNN@example.com` cho mỗi user GeoLife (ví dụ `user002@example.com` xem user 002),
     `admin@example.com` (nhóm admin). `GET /health` không cần đăng nhập.
 
     **Quyền riêng tư.** Vị trí nhà và nơi làm là dữ liệu nhạy cảm. Mọi endpoint trừ `/health` cần token đăng nhập,

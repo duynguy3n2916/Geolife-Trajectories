@@ -4,16 +4,22 @@ Registry chỉ lưu con trỏ và metadata (không lưu file): mỗi Model Packa
 Lambda tra cứu không gọi registry: `set-default` duyệt version trên registry và ghi luôn results/_default.json, Lambda đọc file đó.
 
 Chạy từ thư mục Home_Office (cần AWS CLI profile `home-office` đã đăng nhập và `pip install boto3 "botocore[crt]"`; gói crt cần để đọc phiên đăng nhập của `aws login`):
-    python deploy/registry/register_models.py register            # tạo group + 2 Model Package (bỏ qua version đã có)
+    python deploy/registry/register_models.py register            # tạo group + Model Package theo MODEL_ORDER (bỏ qua version đã có)
     python deploy/registry/register_models.py list                # liệt kê version, trạng thái duyệt
     python deploy/registry/register_models.py set-default dbscan-v2   # version này Approved, còn lại Pending; ghi results/_default.json
     python deploy/registry/register_models.py default             # in version đang Approved (JSON)
+    python deploy/registry/register_models.py reset --yes         # XOÁ mọi Model Package và group (để đăng ký lại từ Version 1)
+
+Số "Version" trên registry do AWS tự tăng theo thứ tự tạo và không đổi được, nên `register` tạo theo MODEL_ORDER
+(heuristic-v1 trước = Version 1, dbscan-v2 sau = Version 2). Muốn đánh số lại thì chỉ có cách `reset --yes` rồi `register`.
+Tên model nằm ở Description, tag `model_version` và metadata `model_version`.
 
 Cần có sẵn: params/<version>.json (python -m src.params write) và đã đẩy lên S3 (deploy/data/upload_params.ps1).
 Quyền IAM cần: sagemaker:CreateModelPackageGroup, CreateModelPackage, ListModelPackages, DescribeModelPackage,
-UpdateModelPackage, sts:GetCallerIdentity, s3:GetObject (kiểm tra file params), s3:PutObject (ghi results/_default.json),
+UpdateModelPackage, AddTags, DeleteModelPackage + DeleteModelPackageGroup (chỉ `reset`), sts:GetCallerIdentity, s3:GetObject (kiểm tra file params), s3:PutObject (ghi results/_default.json),
 ecr (SageMaker kiểm tra image).
-Đã chạy 16/11/2026: 2 version, khai báo image chạy được. Nếu sau này CreateModelPackage báo lỗi về image, thử `register --no-inference-spec`.
+Đã chạy 16/11/2026: 2 version, khai báo image chạy được (lần đó đăng ký theo thứ tự chữ cái nên dbscan-v2 thành Version 1;
+đã sửa bằng MODEL_ORDER, đăng ký lại 18/11/2026). Nếu sau này CreateModelPackage báo lỗi về image, thử `register --no-inference-spec`.
 """
 from __future__ import annotations
 
@@ -27,7 +33,13 @@ from pathlib import Path
 REGION = "ap-southeast-1"
 PROFILE = "home-office"
 GROUP = "home-office"
-DEFAULT_VERSION = "heuristic-v1"          # khớp models.DEFAULT_MODEL
+DEFAULT_VERSION = "dbscan-v2"             # version Approved khi `register` (= mặc định của API qua _default.json).
+                                           # Khác models.DEFAULT_MODEL (heuristic-v1): đó là mặc định khi chạy infer cục bộ.
+MODEL_ORDER = ["heuristic-v1", "dbscan-v2"]  # thứ tự đăng ký = số Version 1, 2 trên registry; version mới thêm vào cuối
+MODEL_DESC = {                             # mô tả ngắn hiện trong cột Description của SageMaker Studio
+    "heuristic-v1": "heuristic-v1: gom địa điểm tham lam quanh điểm neo, bán kính 200 m",
+    "dbscan-v2": "dbscan-v2: gom địa điểm bằng DBSCAN, eps 200 m, min_samples 1",
+}
 IMAGE_REPO = "home-office-lambda"          # kho ECR chứa image của Lambda batch ($Repo trong deploy/common.ps1)
 IMAGE_TAG = "v1"
 MAX_VALUE_LEN = 256                        # giới hạn giá trị CustomerMetadataProperties
@@ -93,7 +105,8 @@ def cmd_register(args) -> None:
     account = _account(sts)
     bucket = bucket_name(account)
     image = args.image or f"{account}.dkr.ecr.{REGION}.amazonaws.com/{IMAGE_REPO}:{IMAGE_TAG}"
-    files = sorted(Path(args.params_dir).glob("*.json"))
+    rank = {v: i for i, v in enumerate(MODEL_ORDER)}
+    files = sorted(Path(args.params_dir).glob("*.json"), key=lambda f: (rank.get(f.stem, len(rank)), f.stem))
     if not files:
         sys.exit(f"Không có {args.params_dir}/*.json. Chạy: python -m src.params write")
     _ensure_group(sm)
@@ -110,7 +123,8 @@ def cmd_register(args) -> None:
         except Exception:
             print(f"Cảnh báo: chưa thấy s3://{bucket}/models/{version}/params.json (chạy deploy\\data\\upload_params.ps1)")
         params = json.loads(f.read_text(encoding="utf-8"))
-        kw = dict(ModelPackageGroupName=GROUP, ModelPackageDescription=f"{version}: {params.get('stay_method', '')} stay, gom địa điểm",
+        kw = dict(ModelPackageGroupName=GROUP, ModelPackageDescription=MODEL_DESC.get(version, f"{version}: gom địa điểm"),
+                  Tags=[{"Key": "model_version", "Value": version}, {"Key": "project", "Value": "home-office"}],
                   CustomerMetadataProperties=build_metadata(version, params, bucket, commit, now),
                   MetadataProperties={"CommitId": commit},
                   ModelApprovalStatus="Approved" if version == args.default else "PendingManualApproval")
@@ -156,6 +170,31 @@ def cmd_default(args) -> None:
     print(json.dumps({"default": m.get("model_version"), "params_uri": m.get("params_uri"), "results_prefix": m.get("results_prefix")}))
 
 
+def cmd_reset(args) -> None:
+    """Xoá mọi Model Package rồi xoá group. Không đụng S3: results/_default.json và kết quả batch giữ nguyên, API vẫn chạy."""
+    if not args.yes:
+        sys.exit("Lệnh này XOÁ mọi version trong group home-office. Chạy lại với --yes nếu chắc chắn.")
+    import time
+    sm, _, _ = _clients()
+    try:
+        sm.describe_model_package_group(ModelPackageGroupName=GROUP)
+    except sm.exceptions.ClientError:
+        print(f"group {GROUP}: không có, không cần xoá")
+        return
+    for p in _packages(sm):
+        sm.delete_model_package(ModelPackageName=p["arn"])
+        print(f"đã xoá v{p['number']} {p['meta'].get('model_version', '?')} ({p['arn']})")
+    sm.delete_model_package_group(ModelPackageGroupName=GROUP)
+    for _ in range(30):                                   # chờ group xoá hẳn để `register` tạo lại được
+        try:
+            sm.describe_model_package_group(ModelPackageGroupName=GROUP)
+            time.sleep(2)
+        except sm.exceptions.ClientError:
+            print(f"group {GROUP}: đã xoá")
+            return
+    print(f"group {GROUP}: đang xoá, chờ thêm vài giây rồi mới chạy register")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -169,6 +208,7 @@ def main() -> None:
     sub.add_parser("list").set_defaults(fn=cmd_list)
     s = sub.add_parser("set-default"); s.add_argument("version"); s.set_defaults(fn=cmd_set_default)
     sub.add_parser("default").set_defaults(fn=cmd_default)
+    x = sub.add_parser("reset"); x.add_argument("--yes", action="store_true"); x.set_defaults(fn=cmd_reset)
     args = ap.parse_args()
     args.fn(args)
 

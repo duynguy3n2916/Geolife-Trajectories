@@ -109,7 +109,8 @@ Kết quả 16/11: 364 lần gọi, 0 lỗi, mỗi version 166 user có kết qu
 **Chốt 2026-11-16.** Group `home-office`, mỗi version một Model Package (con trỏ tới `params.json`, thư mục kết quả, commit, tham số, image). Đúng một version `Approved` = version mặc định của API.
 - `register_models.py set-default <v>` vừa duyệt trên registry vừa ghi `results/_default.json`; Lambda tra cứu chỉ đọc file này (nhớ 60 giây), không gọi registry ở mỗi request (nhanh, ít phụ thuộc). Đổi version mặc định chỉ qua lệnh này để registry và API không lệch nhau.
 - Chọn SageMaker thay MLflow: dịch vụ có sẵn, không phải dựng máy chủ, cùng tài khoản và IAM. Không có phần theo dõi thí nghiệm như MLflow; dự án không dùng MLflow.
-- **Hiện tại:** `dbscan-v2` Approved (đặt trong lúc demo canary 16/11). Chọn version chính thức cho bản nộp **chưa chốt**: hai bản trùng home 93%, office 100% (D20), không có nhãn để biết bản nào đúng hơn (A13).
+- Số Version do AWS tự tăng theo thứ tự tạo, không sửa được. Lần đăng ký đầu (16/11) theo thứ tự chữ cái nên `dbscan-v2` thành Version 1; 18/11 xoá group (`reset --yes`) và đăng ký lại theo `MODEL_ORDER` để Version 1 = `heuristic-v1`, Version 2 = `dbscan-v2`. Lambda và canary không dùng ARN hay số Version của registry nên không bị ảnh hưởng.
+- **Hiện tại:** `dbscan-v2` Approved (đặt trong lúc demo canary 16/11, giữ khi đăng ký lại 18/11). Chọn version chính thức cho bản nộp **chưa chốt**: hai bản trùng home 93%, office 100% (D20), không có nhãn để biết bản nào đúng hơn (A13).
 
 ### D25. Deploy strategy: canary bằng Lambda alias có trọng số
 **Chốt 2026-11-16.** Lambda tra cứu bật `publish` (mỗi lần đổi code / cấu hình thành một bản đánh số); alias `live` trỏ bản chính và gửi một phần traffic sang bản mới nhất; API Gateway gọi alias. Điều khiển bằng `deploy/terraform/canary.auto.tfvars`; đo bằng `api/canary_check.ps1` (header `X-Lambda-Version`).

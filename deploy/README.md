@@ -46,7 +46,7 @@ Mỗi bước tạo ra thứ mà bước sau cần.
 | 4 | trong `deploy\terraform`: `terraform plan`, rồi `terraform apply` | toàn bộ hạ tầng | cần image (3b) và bucket (1) |
 | 5 | trong `deploy\terraform`: `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` | `api\api_url.txt` | `test.ps1`, `canary_check.ps1` đọc địa chỉ API từ file này |
 | 6 | `.\batch\run_batch.ps1` | `results/<version>/<user>.json` | cần đủ dữ liệu, params, function, quyền ghi |
-| 7 | `python deploy/registry/register_models.py register`, rồi `set-default heuristic-v1` | 2 version trên registry, `results/_default.json` | API cần biết version mặc định |
+| 7 | `python deploy/registry/register_models.py register`, rồi `set-default dbscan-v2` | Version 1 = heuristic-v1, Version 2 = dbscan-v2 (Approved), `results/_default.json` | API cần biết version mặc định |
 | 7b | trong `deploy\terraform`: `terraform output -raw cognito_client_id \| Set-Content -Encoding ascii ..\..\api\cognito_client_id.txt`, rồi `.\deploy\cognito_users.ps1` | `api\cognito_client_id.txt`, 183 tài khoản trong Cognito | route tra cứu cần token; `test.ps1` đăng nhập bằng các tài khoản này |
 | 8 | `.\api\test.ps1` | | kiểm API trả đúng mã HTTP, gồm 401 (không token), 403 (user khác), 200 (đúng user, admin) |
 

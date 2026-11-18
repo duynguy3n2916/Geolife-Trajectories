@@ -3,8 +3,13 @@
 # Cách chạy (từ thư mục Home_Office):
 #   .\api\canary_check.ps1              100 lần, user 153
 #   .\api\canary_check.ps1 -N 200 -User 128
-# Đọc địa chỉ API trong api\api_url.txt.
-param([int]$N = 100, [string]$User = "153")
+#   .\api\canary_check.ps1 -NoAuth   khi đã tắt đăng nhập (auth_enabled = false)
+# Đọc địa chỉ API trong api\api_url.txt. Có đăng nhập: lấy token tài khoản admin một lần (api\auth.ps1),
+# hỏi mật khẩu demo nếu chưa đặt $env:HO_DEMO_PASSWORD. Token sống 60 phút, đủ cho một lần chạy.
+param([int]$N = 100, [string]$User = "153", [switch]$NoAuth, [string]$Email = "admin@example.com")
+. "$PSScriptRoot\auth.ps1"
+$headers = @{}
+if (-not $NoAuth) { $headers["Authorization"] = "Bearer " + (Get-IdToken $Email (Read-DemoPassword)) }
 
 $url = (Get-Content "$PSScriptRoot\api_url.txt" -Raw).Trim() + "/v1/users/$User/home-office"
 $rows = @()
@@ -12,7 +17,7 @@ Write-Host "Gọi $N lần: $url"
 for ($i = 1; $i -le $N; $i++) {
     $status = 0; $lv = "?"; $mv = "?"
     try {
-        $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
+        $r = Invoke-WebRequest -Uri $url -Headers $headers -UseBasicParsing -TimeoutSec 30
         $status = [int]$r.StatusCode
         $lv = $r.Headers["X-Lambda-Version"]; $mv = $r.Headers["X-Model-Version"]
     } catch {

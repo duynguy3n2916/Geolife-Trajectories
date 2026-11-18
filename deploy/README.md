@@ -47,7 +47,8 @@ Mỗi bước tạo ra thứ mà bước sau cần.
 | 5 | trong `deploy\terraform`: `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` | `api\api_url.txt` | `test.ps1`, `canary_check.ps1` đọc địa chỉ API từ file này |
 | 6 | `.\batch\run_batch.ps1` | `results/<version>/<user>.json` | cần đủ dữ liệu, params, function, quyền ghi |
 | 7 | `python deploy/registry/register_models.py register`, rồi `set-default heuristic-v1` | 2 version trên registry, `results/_default.json` | API cần biết version mặc định |
-| 8 | `.\api\test.ps1` | | kiểm API trả đúng mã HTTP |
+| 7b | trong `deploy\terraform`: `terraform output -raw cognito_client_id \| Set-Content -Encoding ascii ..\..\api\cognito_client_id.txt`, rồi `.\deploy\cognito_users.ps1` | `api\cognito_client_id.txt`, 3 tài khoản demo trong Cognito | route tra cứu cần token; `test.ps1` đăng nhập bằng các tài khoản này |
+| 8 | `.\api\test.ps1` | | kiểm API trả đúng mã HTTP, gồm 401 (không token), 403 (user khác), 200 (đúng user, admin) |
 
 Chạy thử trước khi chạy hết: `.\batch\run_batch.ps1 -OnlyUsers 153,128 -DryRun`.
 Batch trên AWS là để **phục vụ**, nên chạy cho mọi user (182), không chia validation / test và không bỏ user bị loại.
@@ -64,6 +65,7 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | đổi version mặc định của API | `python deploy/registry/register_models.py set-default dbscan-v2` |
 | thêm version model mới | `params\<version>.json`, 2, 6, rồi `register_models.py register` |
 | RAM, timeout, giới hạn request | `deploy\terraform\variables.tf`, rồi 4 |
+| bật / tắt đăng nhập | `auth_enabled` trong `deploy\terraform\terraform.tfvars`, rồi 4 (xem `terraform\README.md`, mục Đăng nhập Cognito) |
 | đưa bản Lambda tra cứu mới ra dần (canary) | sửa `deploy\terraform\canary.auto.tfvars`, rồi 4 (xem `terraform\README.md`, mục Canary) |
 
 ## File nào làm gì
@@ -79,9 +81,12 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | `terraform\` | Bước 4: toàn bộ hạ tầng. Bucket và ECR chỉ đọc, nên `terraform destroy` không đụng tới dữ liệu. |
 | `..\batch\handler.py` | Code chạy trong Lambda batch. `lambda_handler` (điểm vào), `load_params` (đọc params, nhớ trong container), `download_user` (tải `.plt` song song), `build_result` (nội dung file kết quả). |
 | `..\batch\run_batch.ps1` | Bước 6: gọi Lambda batch cho mọi cặp (user, model), đồng bộ hoặc `-Async`, ghi log `batch\runs\`, đếm file mới, lưu biên bản `results/_runs/`. |
+| `cognito_users.ps1` | Bước 7b: tạo hoặc cập nhật 3 tài khoản demo trong Cognito (user 002, user 153, admin), đặt mật khẩu chính thức, thêm admin vào nhóm `admin`. |
 | `registry\register_models.py` | Bước 7: đăng ký version vào SageMaker Model Registry (`register`, `list`, `default`), duyệt version mặc định và ghi `results/_default.json` (`set-default`). |
-| `..\api\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, công tắc đăng nhập `AUTH_MODE`, `PINNED_VERSION` và `SIMULATE_ERROR` cho canary. |
-| `..\api\test.ps1` | Bước 8: gọi thử API và so mã HTTP với mong đợi. |
+| `..\api\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, kiểm quyền khi `AUTH_MODE=jwt` (claim `custom:geolife_id`, nhóm `admin`), `PINNED_VERSION` và `SIMULATE_ERROR` cho canary. |
+| `..\api\test.ps1` | Bước 8: đăng nhập tài khoản demo, gọi thử API và so mã HTTP với mong đợi (`-NoAuth` khi tắt đăng nhập). |
+| `..\api\auth.ps1` | Hàm `Get-IdToken` (đăng nhập Cognito bằng email + mật khẩu, trả ID token), `Read-DemoPassword`. Các script trong `api\` nạp file này. |
+| `..\api\get_token.ps1` | In ID token của một tài khoản, để gọi API bằng tay. |
 | `..\api\canary_check.ps1` | Demo canary: gọi API nhiều lần, đếm bản Lambda nào trả lời và tỉ lệ lỗi. |
 | `bench\results\` | Kết quả thử nghiệm đo thời gian và RAM ngày 12/11 (chỉ trên máy, không có trong git; script đo đã xoá, xem lịch sử git nếu cần đo lại). |
 

@@ -8,7 +8,9 @@ Route:
     s3://BUCKET/results/_default.json              {"default_model_version": "heuristic-v1"}  (nhớ 60 giây)
 Biến môi trường:
     BUCKET (bắt buộc); VERSIONS (mặc định "heuristic-v1,dbscan-v2"); DEFAULT_VERSION (khi chưa có _default.json);
-    AUTH_MODE = none (mặc định) | jwt: claim `sub` của token phải ứng với user_id theo SUB_MAP (JSON {"<sub>": "<user_id>"}).
+    AUTH_MODE = none (mặc định) | jwt: route tra cứu đứng sau JWT authorizer Cognito (deploy/terraform/cognito.tf).
+        API Gateway đã kiểm chữ ký / hạn token (sai thì 401, Lambda không chạy). Lambda đọc claims của ID token:
+        `custom:geolife_id` phải bằng {user_id}, trừ khi `cognito:groups` có ADMIN_GROUP (mặc định "admin"); sai thì 403.
     PINNED_VERSION: nếu có, bản Lambda này luôn dùng version model đó làm mặc định (bỏ qua _default.json).
         Dùng cho canary: bản cũ theo registry, bản mới ghim version mới; alias "live" chia traffic giữa hai bản.
     SIMULATE_ERROR = 1: route tra cứu cố ý ném lỗi (chỉ để demo rollback canary; /health vẫn chạy).
@@ -28,7 +30,7 @@ BUCKET = os.environ["BUCKET"]
 VERSIONS = [v.strip() for v in os.environ.get("VERSIONS", "heuristic-v1,dbscan-v2").split(",") if v.strip()]
 FALLBACK_DEFAULT = os.environ.get("DEFAULT_VERSION", "heuristic-v1")
 AUTH_MODE = os.environ.get("AUTH_MODE", "none")
-SUB_MAP = json.loads(os.environ.get("SUB_MAP", "{}"))
+ADMIN_GROUP = os.environ.get("ADMIN_GROUP", "admin")
 USER_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")          # chặn ký tự lạ để không ai chèn đường dẫn vào key S3
 PINNED_VERSION = os.environ.get("PINNED_VERSION") or None
 SIMULATE_ERROR = os.environ.get("SIMULATE_ERROR") == "1"
@@ -78,11 +80,30 @@ def _loc(x):
     return {"lat": x["lat"], "lon": x["lon"], "confidence": x.get("confidence"), "n_votes": x["n_votes"]}
 
 
-def _caller_user(event):
-    """AUTH_MODE=jwt: user_id của người đang đăng nhập (None nếu không có token hoặc chưa ánh xạ)."""
-    claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
-    sub = claims.get("sub")
-    return SUB_MAP.get(sub) if sub else None
+def _claims(event) -> dict:
+    """Claims của token mà JWT authorizer đã kiểm (rỗng nếu route không gắn authorizer)."""
+    return (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
+
+
+def _groups(claims: dict) -> set:
+    """cognito:groups. HTTP API đưa claim dạng mảng thành chuỗi "[admin other]"; chấp nhận cả list."""
+    g = claims.get("cognito:groups") or []
+    if isinstance(g, str):
+        g = g.strip("[]").replace(",", " ").split()
+    return {str(x).strip('"') for x in g}
+
+
+def check_access(event, user: str):
+    """AUTH_MODE=jwt: trả None nếu được đọc kết quả của `user`, không thì trả response lỗi 401 / 403."""
+    claims = _claims(event)
+    if not claims:  # route quên gắn authorizer: chặn luôn thay vì mở cho mọi người
+        return _err(401, "unauthorized", "Cần đăng nhập (Authorization: Bearer <ID token>)")
+    if ADMIN_GROUP in _groups(claims):
+        return None
+    if claims.get("custom:geolife_id") == user:
+        return None
+    print(json.dumps({"event": "forbidden", "has_geolife_id": bool(claims.get("custom:geolife_id"))}))
+    return _err(403, "forbidden", "Không được đọc kết quả của người dùng này")
 
 
 def lambda_handler(event, context):
@@ -105,9 +126,9 @@ def lambda_handler(event, context):
         return _err(422, "unknown_model_version", f"model_version phải là một trong: {', '.join(VERSIONS)}")
 
     if AUTH_MODE == "jwt":
-        caller = _caller_user(event)
-        if caller is None or caller != user:
-            return _err(403, "forbidden", "Không được đọc kết quả của người dùng này")
+        denied = check_access(event, user)
+        if denied:
+            return denied
 
     try:
         doc = _get_json(f"results/{version}/{user}.json")

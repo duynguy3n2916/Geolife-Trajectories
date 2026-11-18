@@ -54,6 +54,7 @@ Terraform in lại plan và hỏi; gõ `yes` mới thực hiện.
 | Xem địa chỉ API | `terraform output -raw api_url` |
 | Ghi địa chỉ API cho `test.ps1`, `canary_check.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` |
 | Xem Terraform đang quản lý gì | `terraform state list` |
+| Ghi app client id cho `get_token.ps1`, `test.ps1`, demo UI | `terraform output -raw cognito_client_id \| Set-Content -Encoding ascii ..\..\api\cognito_client_id.txt` |
 
 ## Báo động và ngân sách (`monitoring.tf`)
 
@@ -86,6 +87,32 @@ Sau mỗi bước, đo tỉ lệ thật (từ thư mục `Home_Office`): `.\api\
 Số bản (1, 2, 3) là số thật Lambda cấp, xem bằng `terraform output lookup_latest_version`; nếu khác bảng thì dùng số thật.
 Blue-green là trường hợp đặc biệt: chuyển thẳng từ bước 0 sang bước 3, giữ bản cũ để quay lại tức thì.
 Sau khi chuyển hẳn sang `dbscan-v2`, nên chạy `python deploy/registry/register_models.py set-default dbscan-v2` để registry khớp.
+
+## Đăng nhập Cognito (`cognito.tf`)
+
+Route `GET /v1/users/{user_id}/home-office` cần ID token của Cognito User Pool `home-office-users`; `/health` vẫn mở.
+API Gateway (JWT authorizer) chặn token thiếu / sai / hết hạn bằng 401. Lambda tra cứu (`AUTH_MODE=jwt`) so claim
+`custom:geolife_id` với `user_id`: khác thì 403, trừ tài khoản nhóm `admin`. Gói LITE, miễn phí đến 10.000 người dùng/tháng.
+
+Bật lần đầu (từ thư mục `Home_Office`, sau `aws login`):
+
+```powershell
+cd deploy\terraform
+terraform plan
+terraform apply
+terraform output -raw cognito_client_id | Set-Content -Encoding ascii ..\..\api\cognito_client_id.txt
+cd ..\..
+.\deploy\cognito_users.ps1
+.\api\test.ps1
+```
+
+`cognito_users.ps1` tạo 3 tài khoản demo cùng một mật khẩu: `user002@example.com` (user 002), `user153@example.com` (user 153),
+`admin@example.com` (nhóm admin). Đặt `$env:HO_DEMO_PASSWORD = "..."` trước thì các script không hỏi lại mật khẩu.
+Lấy token để gọi tay: `.\api\get_token.ps1 user153@example.com`.
+
+Tắt đăng nhập: thêm dòng `auth_enabled = false` vào `terraform.tfvars`, `plan`, `apply`; thử bằng `.\api\test.ps1 -NoAuth`.
+User Pool và tài khoản vẫn giữ. Bật hay tắt đều tạo một bản Lambda tra cứu mới (đổi biến `AUTH_MODE`); alias `live` theo bản đó
+nếu đang không chạy canary. Khi đang canary (`stable_version` khác `""`), bản chính cũ vẫn giữ `AUTH_MODE` cũ: đừng đổi đăng nhập giữa lúc canary.
 
 ## State
 

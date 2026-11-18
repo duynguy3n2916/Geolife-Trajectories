@@ -15,6 +15,7 @@ docs/
 batch/runs/
 deploy/bench/
 api/api_url.txt
+api/cognito_client_id.txt
 *.tar.gz
 
 # ---- Python ----

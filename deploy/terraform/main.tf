@@ -1,5 +1,5 @@
 # Hạ tầng chính của Home/Office: Lambda batch, Lambda tra cứu, API Gateway và quyền IAM.
-# Canary (alias live) ở canary.tf, alarm và ngân sách ở monitoring.tf.
+# Canary (alias live) ở canary.tf, alarm và ngân sách ở monitoring.tf, đăng nhập Cognito ở cognito.tf.
 #
 # Terraform KHÔNG quản lý (chỉ đọc, hoặc để ngoài hẳn):
 #   - bucket S3 (dữ liệu GPS, params, kết quả): chỉ đọc bằng "data", nên Terraform không thể xoá hay tạo lại;
@@ -193,6 +193,8 @@ resource "aws_lambda_function" "lookup" {
   environment {
     variables = merge(
       { BUCKET = data.aws_s3_bucket.main.id },
+      # jwt: so claim custom:geolife_id của token với user_id, nhóm admin xem mọi user (cognito.tf).
+      { AUTH_MODE = var.auth_enabled ? "jwt" : "none", ADMIN_GROUP = aws_cognito_user_group.admin.name },
       var.lookup_pinned_version != "" ? { PINNED_VERSION = var.lookup_pinned_version } : {},
       var.lookup_simulate_error ? { SIMULATE_ERROR = "1" } : {},
     )
@@ -229,10 +231,13 @@ resource "aws_apigatewayv2_route" "health" {
   target    = "integrations/${aws_apigatewayv2_integration.lookup.id}"
 }
 
+# Route tra cứu cần token Cognito khi auth_enabled = true (cognito.tf). Thiếu hoặc sai token: API Gateway trả 401.
 resource "aws_apigatewayv2_route" "home_office" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /v1/users/{user_id}/home-office"
-  target    = "integrations/${aws_apigatewayv2_integration.lookup.id}"
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /v1/users/{user_id}/home-office"
+  target             = "integrations/${aws_apigatewayv2_integration.lookup.id}"
+  authorization_type = var.auth_enabled ? "JWT" : "NONE"
+  authorizer_id      = var.auth_enabled ? aws_apigatewayv2_authorizer.cognito.id : null
 }
 
 # Stage $default tự deploy mỗi khi đổi route; giới hạn số request để tránh bị gọi tràn.

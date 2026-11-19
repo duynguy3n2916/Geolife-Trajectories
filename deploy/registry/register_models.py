@@ -2,6 +2,8 @@
 
 Registry chỉ lưu con trỏ và metadata (không lưu file): mỗi Model Package trỏ tới params.json và thư mục kết quả trên S3.
 Lambda tra cứu không gọi registry: `set-default` duyệt version trên registry và ghi luôn results/_default.json, Lambda đọc file đó.
+Từ 19/11/2026 còn có Lambda home-office-registry-sync (deploy/terraform/registry_sync.tf): duyệt version ở bất cứ đâu (Studio, CLI)
+thì EventBridge gọi Lambda đó ghi lại results/_default.json. `set-default` vẫn tự ghi file như cũ (hai bên ghi cùng một giá trị).
 
 Chạy từ thư mục Home_Office (cần AWS CLI profile `home-office` đã đăng nhập và `pip install boto3 "botocore[crt]"`; gói crt cần để đọc phiên đăng nhập của `aws login`):
     python deploy/registry/register_models.py register            # tạo group + Model Package theo MODEL_ORDER (bỏ qua version đã có)

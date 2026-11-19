@@ -27,7 +27,8 @@ App ──► API Gateway home-office-api ──► Lambda tra cứu home-office
         GET /health
         GET /v1/users/{user_id}/home-office[?model_version=...]
 
-SageMaker Model Registry (group home-office): version Approved = version mặc định, ghi xuống S3 results/_default.json
+SageMaker Model Registry (group home-office): duyệt (Approved) một version
+        ──► EventBridge ──► Lambda home-office-registry-sync ──► S3 results/_default.json ──► Lambda tra cứu (60 giây)
 ```
 
 Hai version model: `heuristic-v1` (gom địa điểm tham lam 200 m) và `dbscan-v2` (DBSCAN eps 200 m).
@@ -62,7 +63,7 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | `..\batch\batch_handler.py` hoặc code trong `src\` | 3a, 3b, 4, 6 |
 | `api\lookup_handler.py` | 4 (`terraform apply` tự nén lại code và tạo bản Lambda mới) |
 | thêm GPS | 1 rồi 6 (cho user có dữ liệu mới) |
-| đổi version mặc định của API | `python deploy/registry/register_models.py set-default dbscan-v2` |
+| đổi version mặc định của API | `python deploy/registry/register_models.py set-default dbscan-v2`, hoặc bấm duyệt (Approve) version đó trong SageMaker Studio: Lambda `home-office-registry-sync` tự ghi `results/_default.json` |
 | thêm version model mới | `params\<version>.json`, 2, 6, rồi `register_models.py register` |
 | RAM, timeout, giới hạn request | `deploy\terraform\variables.tf`, rồi 4 |
 | bật / tắt đăng nhập | `auth_enabled` trong `deploy\terraform\terraform.tfvars`, rồi 4 (xem `terraform\README.md`, mục Đăng nhập Cognito) |
@@ -82,6 +83,7 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | `..\batch\batch_handler.py` | Code chạy trong Lambda batch. `lambda_handler` (điểm vào), `load_params` (đọc params, nhớ trong container), `download_user` (tải `.plt` song song), `build_result` (nội dung file kết quả). |
 | `..\batch\run_batch.ps1` | Bước 6: gọi Lambda batch cho mọi cặp (user, model), đồng bộ hoặc `-Async`, ghi log `batch\runs\`, đếm file mới, lưu biên bản `results/_runs/`. |
 | `cognito_users.ps1` | Bước 7b: tạo hoặc cập nhật tài khoản Cognito cho mọi user GeoLife (`userNNN@example.com`, 182 tài khoản) và `admin@example.com`, đặt mật khẩu chính thức, thêm admin vào nhóm `admin`. |
+| `..\registry_sync\registry_sync_handler.py` | Code của Lambda đồng bộ registry: khi một version đổi trạng thái duyệt trên SageMaker, tìm version Approved (nhiều bản thì bản đổi gần nhất thắng, không có bản nào thì giữ nguyên) và ghi `results/_default.json`. Hạ tầng ở `terraform\registry_sync.tf`. |
 | `registry\register_models.py` | Bước 7: đăng ký version vào SageMaker Model Registry (`register`, `list`, `default`), duyệt version mặc định và ghi `results/_default.json` (`set-default`). |
 | `..\api\lookup_handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, kiểm quyền khi `AUTH_MODE=jwt` (claim `custom:geolife_id`, nhóm `admin`), `PINNED_VERSION` (model mặc định ghim), `CANARY_MODEL` + `CANARY_PERCENT` (+ `CANARY_SALT`, `CANARY_SIMULATE_ERROR`) cho canary model theo user (băm sha256 của `muối:user_id`, header `X-Canary`). |
 | `..\api\test.ps1` | Bước 8: đăng nhập tài khoản demo, gọi thử API và so mã HTTP với mong đợi (`-NoAuth` khi tắt đăng nhập). |

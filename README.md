@@ -19,6 +19,7 @@ Home_Office/
 │   └── canary_check.ps1     đo tỉ lệ bản Lambda trả lời khi chạy canary
 ├── params/                  ngưỡng của từng version model (heuristic-v1.json, dbscan-v2.json), Lambda batch đọc từ S3
 ├── batch/                   Lambda batch: batch_handler.py, Dockerfile, build image (CloudShell), run_batch.ps1 chạy batch
+├── registry_sync/           Lambda đồng bộ registry: version Approved trên SageMaker -> results/_default.json
 ├── deploy/                  hạ tầng và vận hành AWS: terraform/, data/ (upload), registry/, common.ps1 (xem deploy/README.md)
 ├── notes/
 │   ├── assumptions.md       ngưỡng và giả định, kèm căn cứ
@@ -176,7 +177,7 @@ python -m pytest tests
 | – | OpenAPI spec | 1.0.0-cp2, khớp API trên AWS | `api/openapi.yaml` |
 | 8 | Batch trên AWS: Lambda tính kết quả cho 182 user, 2 version | xong 2026-11-16 (166 user có kết quả mỗi version) | `batch/` |
 | 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `api/lookup_handler.py`, `deploy/terraform/` |
-| 10 | Model registry (SageMaker), version được duyệt là mặc định của API | xong 2026-11-16 | `deploy/registry/register_models.py` |
+| 10 | Model registry (SageMaker), version được duyệt là mặc định của API; duyệt trong Studio thì EventBridge + Lambda tự cập nhật API (19/11) | xong 2026-11-16 | `deploy/registry/register_models.py`, `registry_sync/`, `deploy/terraform/registry_sync.tf` |
 | 11 | Deploy strategy: canary model theo người dùng (băm sha256 `user_id`), có demo lỗi + rollback; bản alias cũ demo 2026-11-16 đã bỏ | sửa 2026-11-19 | `deploy/terraform/canary.tf`, `api/canary_check.ps1` |
 | 12 | Theo dõi: alarm, email, ngân sách | xong 2026-11-16 | `deploy/terraform/monitoring.tf` |
 

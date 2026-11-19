@@ -8,6 +8,7 @@ Toàn bộ hạ tầng AWS của dự án (bước 4 trong `deploy\README.md`).
 | `variables.tf` | RAM, timeout của 2 Lambda, giới hạn request API, tag image |
 | `main.tf` | bucket và ECR (chỉ đọc), Lambda batch + role + hàng đợi lỗi, Lambda tra cứu + role, API Gateway |
 | `canary.tf`, `canary.auto.tfvars` | điều khiển canary model theo người dùng |
+| `registry_sync.tf` | registry điều khiển API: EventBridge bắt sự kiện duyệt version trên SageMaker, Lambda ghi `results/_default.json` |
 | `monitoring.tf`, `terraform.tfvars` | alarm, email báo động, ngân sách (email chỉ để trên máy) |
 | `outputs.tf` | giá trị in ra sau apply |
 
@@ -109,6 +110,35 @@ Blue-green tương ứng: nhảy thẳng từ bước 0 sang bước 3 (đổi m
 Sau khi chuyển hẳn, nếu registry chưa duyệt model mới thì chạy `python deploy/registry/register_models.py set-default dbscan-v2`.
 Trước 19/11/2026 canary làm bằng Lambda alias `live` chia traffic theo request (đã bỏ vì cùng user lúc thấy model này lúc
 model kia); xem lại trong lịch sử git nếu cần.
+
+## Registry điều khiển API (`registry_sync.tf`)
+
+Duyệt một version trong SageMaker Model Registry là API tự dùng version đó, không cần chạy thêm lệnh nào:
+
+1. Đổi trạng thái duyệt trong SageMaker Studio (Models, group `home-office`, chọn version, Update status, Approved),
+   bằng CLI, hoặc bằng `python deploy/registry/register_models.py set-default <version>`.
+2. SageMaker phát sự kiện `SageMaker Model Package State Change`. Rule `home-office-registry-change` chỉ bắt group `home-office`.
+3. Lambda `home-office-registry-sync` (`registry_sync/registry_sync_handler.py`) liệt kê các version Approved và ghi
+   `results/_default.json`. Lambda tra cứu đọc lại file này sau tối đa 60 giây.
+
+Quy tắc chọn version (registry cho phép nhiều bản cùng Approved):
+
+| Tình huống | Lambda làm gì |
+|---|---|
+| Đúng 1 version Approved | Ghi version đó |
+| Nhiều version Approved | Bản có `LastModifiedTime` mới nhất (bản vừa được duyệt) thắng; log `multiple_approved` |
+| Không có version Approved nào | Không ghi gì, giữ nguyên `_default.json` cũ để API không gián đoạn; log `no_approved` |
+| Version Approved có tên lạ (không phải `heuristic-v1`, `dbscan-v2`) | Bỏ qua; log `unknown_model` |
+| Version chọn được trùng file đang có | Không ghi lại; log `unchanged` |
+
+Tên model lấy từ metadata `model_version` của version (do `register_models.py` ghi), không có thì lấy phần trước dấu `:` của Description.
+Lambda chỉ đọc registry, không tự đổi trạng thái version nào. Muốn chỉ đúng một bản Approved thì dùng `set-default`
+(nó vừa duyệt bản được chọn vừa đưa các bản khác về Pending). Duyệt trong Studio thì nhớ tự đưa bản cũ về Pending cho gọn.
+
+Quyền tối thiểu của Lambda: `sagemaker:ListModelPackages` (AWS chỉ cho `*`), `sagemaker:DescribeModelPackage` trên
+`model-package/home-office/*`, `s3:GetObject` + `s3:PutObject` trên đúng `results/_default.json`.
+Lambda lỗi thì alarm `home-office-registry-sync-errors` gửi email. Xem log: CloudWatch, log group `/aws/lambda/home-office-registry-sync`.
+`lookup_pinned_version` (canary.tf) vẫn ghi đè registry: đang ghim thì đổi registry không có tác dụng.
 
 ## Đăng nhập Cognito (`cognito.tf`)
 

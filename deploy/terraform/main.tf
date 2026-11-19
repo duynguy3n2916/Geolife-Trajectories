@@ -195,6 +195,7 @@ resource "aws_lambda_function" "lookup" {
       # Canary model theo user (canary.tf): chỉ thêm biến khi bật.
       local.model_canary_on ? { CANARY_MODEL = var.canary_model, CANARY_PERCENT = tostring(var.canary_percent) } : {},
       local.model_canary_on && var.canary_salt != "" ? { CANARY_SALT = var.canary_salt } : {},
+      local.model_canary_on && local.canary_by_list ? { CANARY_USERS = join(",", var.canary_users) } : {},
       local.model_canary_on && var.canary_simulate_error ? { CANARY_SIMULATE_ERROR = "1" } : {},
     )
   }

@@ -58,7 +58,7 @@ def load_handler(monkeypatch, auth_mode, default_doc=None, **env):
     monkeypatch.setenv("BUCKET", "test-bucket")
     monkeypatch.setenv("AUTH_MODE", auth_mode)
     monkeypatch.setenv("PINNED_VERSION", "dbscan-v2")
-    for k in ("CANARY_MODEL", "CANARY_PERCENT", "CANARY_SALT", "CANARY_SIMULATE_ERROR"):
+    for k in ("CANARY_MODEL", "CANARY_PERCENT", "CANARY_SALT", "CANARY_SIMULATE_ERROR", "CANARY_USERS"):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -310,3 +310,31 @@ def test_default_from_registry_when_not_pinned(monkeypatch):
     monkeypatch.setattr(h, "PINNED_VERSION", None)
     code, body = call(h, event("153", ADMIN))
     assert code == 200 and body["model_version"] == "heuristic-v1"
+
+
+# ---------- canary theo danh sách (CANARY_USERS, do api/pick_canary_users.py chọn) ----------
+def test_canary_users_list_exact(monkeypatch):
+    """Có danh sách: đúng các user đó vào canary, CANARY_PERCENT bị bỏ qua."""
+    h = load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="100", CANARY_USERS="003, 017,153")
+    got = {u for u in USERS if call_full(h, event(u, ADMIN))[2].get("X-Canary") == "true"}
+    assert got == {"003", "017", "153"} & set(USERS)
+    code, body, hd = call_full(h, event("153", ADMIN))
+    assert body["model_version"] == "heuristic-v1" and hd["X-Canary"] == "true"
+
+
+def test_canary_users_without_model_off(monkeypatch):
+    h = load_handler(monkeypatch, "jwt", CANARY_USERS="153")
+    assert call_full(h, event("153", ADMIN))[2]["X-Canary"] == "false"
+
+
+def test_canary_users_still_needs_registry(monkeypatch):
+    h = load_handler(monkeypatch, "jwt", default_doc={"default_model_version": "dbscan-v2", "registered": ["dbscan-v2"]},
+                     CANARY_MODEL="heuristic-v1", CANARY_USERS="153")
+    assert call_full(h, event("153", ADMIN))[2]["X-Canary"] == "false"
+
+
+def test_simulate_error_with_list(monkeypatch):
+    h = load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_USERS="153", CANARY_SIMULATE_ERROR="1")
+    with pytest.raises(RuntimeError):
+        call(h, event("153", ADMIN))
+    assert call(h, event("002", ADMIN))[0] == 200

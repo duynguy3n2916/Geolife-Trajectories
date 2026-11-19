@@ -1,6 +1,7 @@
 ﻿# Demo canary model theo người dùng (deploy/terraform/canary.tf): gọi cả 182 user (000..181) 2 vòng, đếm bao nhiêu user
 # nhận mỗi model (header X-Model-Version, X-Canary), và kiểm tra mỗi user ở vòng 2 có giữ nguyên model không (phải là 0 user đổi).
-# Chạy lại sau mỗi lần đổi canary_percent. Khi bật canary_simulate_error: user canary trả 500, script liệt kê các user lỗi.
+# Nếu deploy/terraform/canary.auto.tfvars có canary_users (api/pick_canary_users.py), script so nhóm canary thật với danh sách đó.
+# Chạy lại sau mỗi lần đổi canary_percent / canary_users. Khi bật canary_simulate_error: user canary trả 500, script liệt kê các user lỗi.
 # Cách chạy (từ thư mục Home_Office):
 #   .\api\canary_check.ps1
 #   .\api\canary_check.ps1 -NoAuth   khi đã tắt đăng nhập (auth_enabled = false)
@@ -55,6 +56,17 @@ $changed = @(for ($i = 0; $i -lt $ids.Count; $i++) {
 })
 $canaryUsers = @($r1 | Where-Object Canary -eq "true" | Select-Object -ExpandProperty User)
 Write-Host ("User canary ({0}): {1}" -f $canaryUsers.Count, ($canaryUsers -join " "))
+# So với canary_users trong tfvars (nếu có). Lưu ý: tfvars là file trên máy, chỉ đúng với Lambda khi đã terraform apply.
+$tfvars = Join-Path $PSScriptRoot "..\deploy\terraform\canary.auto.tfvars"
+$m = if (Test-Path $tfvars) { Select-String -Path $tfvars -Pattern '^\s*canary_users\s*=\s*\[(.*)\]' | Select-Object -First 1 } else { $null }
+$listed = if ($m) { @([regex]::Matches($m.Matches[0].Groups[1].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }) } else { @() }
+if ($listed.Count) {
+    $missing = @($listed | Where-Object { $_ -notin $canaryUsers })
+    $extra = @($canaryUsers | Where-Object { $_ -notin $listed })
+    Write-Host ("So với canary_users trong tfvars ({0} user): thiếu {1} {2}; thừa {3} {4}" -f $listed.Count,
+        $missing.Count, ($missing -join " "), $extra.Count, ($extra -join " ")) `
+        -ForegroundColor $(if ($missing.Count -or $extra.Count) { "Red" } else { "Green" })
+}
 Write-Host ("Đổi model giữa vòng 1 và vòng 2: {0} user {1}" -f $changed.Count, ($changed -join " ")) `
     -ForegroundColor $(if ($changed.Count) { "Red" } else { "Green" })
 $fail = @(($r1 + $r2) | Where-Object { $_.Status -notin 200, 404 })

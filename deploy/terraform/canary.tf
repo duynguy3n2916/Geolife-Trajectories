@@ -9,8 +9,10 @@
 #   - Thăng cấp: duyệt bản ứng viên trong SageMaker Studio (registry_sync.tf tự cập nhật API), rồi tắt canary.
 #   - Cùng một người dùng luôn thấy cùng một model; tăng 10 -> 50 -> 100 thì nhóm cũ vẫn nằm trong nhóm canary.
 #   - Muối = canary_salt, để "" thì dùng tên canary_model: mỗi model mới rút một nhóm người dùng khác.
+#   - canary_users (danh sách user_id, do api/pick_canary_users.py chọn ngẫu nhiên đúng N%): có danh sách thì CHỈ các
+#     user đó vào canary, canary_percent và canary_salt bị bỏ qua. Danh sách rỗng thì dùng cách băm theo canary_percent.
 #   - Response có header X-Model-Version (model nào) và X-Canary (true / false).
-#   - Rollback: canary_percent = 0 (hoặc canary_model = ""), terraform apply, mọi người dùng về model mặc định.
+#   - Rollback: canary_model = "", terraform apply, mọi người dùng về model nền (tắt cả hai cách chọn nhóm).
 #
 # Điều khiển bằng file canary.auto.tfvars (Terraform tự đọc), sửa file rồi chạy terraform apply.
 # Mỗi lần đổi các biến này thì cấu hình Lambda đổi, Lambda cập nhật trong khoảng vài giây.
@@ -50,6 +52,22 @@ variable "canary_salt" {
   default     = ""
 }
 
+variable "canary_users" {
+  description = "Danh sách user_id nhóm canary (api/pick_canary_users.py --write). Có danh sách thì bỏ qua canary_percent."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for u in var.canary_users : can(regex("^[A-Za-z0-9_-]{1,64}$", u))])
+    error_message = "Mỗi phần tử canary_users phải là user_id hợp lệ, ví dụ \"153\"."
+  }
+  validation {
+    # Biến môi trường Lambda tối đa 4 KB tổng cộng; 182 user x 4 ký tự khoảng 730 byte.
+    condition     = length(join(",", var.canary_users)) <= 2000
+    error_message = "canary_users quá dài cho biến môi trường Lambda (tối đa khoảng 2000 ký tự)."
+  }
+}
+
 variable "canary_simulate_error" {
   description = "true: người dùng thuộc nhóm canary bị lỗi 500 (giả lập model mới hỏng, chỉ để demo alarm + rollback)."
   type        = bool
@@ -57,11 +75,12 @@ variable "canary_simulate_error" {
 }
 
 locals {
-  # Canary bật khi có model và phần trăm > 0 (main.tf đưa vào biến môi trường Lambda).
-  model_canary_on = var.canary_model != "" && var.canary_percent > 0
+  # Canary bật khi có model và (có danh sách user hoặc phần trăm > 0). main.tf đưa vào biến môi trường Lambda.
+  canary_by_list  = length(var.canary_users) > 0
+  model_canary_on = var.canary_model != "" && (local.canary_by_list || var.canary_percent > 0)
 }
 
 output "lookup_model_canary" {
   description = "Canary model theo người dùng đang bật thế nào."
-  value       = local.model_canary_on ? "${var.canary_percent}% user (sha256 của \"${var.canary_salt != "" ? var.canary_salt : var.canary_model}:user_id\") nhận ${var.canary_model}${var.canary_simulate_error ? " (ĐANG GIẢ LẬP LỖI)" : ""}, còn lại nhận model mặc định" : "tắt (mọi user nhận model mặc định)"
+  value       = !local.model_canary_on ? "tắt (mọi user nhận model mặc định)" : local.canary_by_list ? "${length(var.canary_users)} user trong canary_users nhận ${var.canary_model}${var.canary_simulate_error ? " (ĐANG GIẢ LẬP LỖI)" : ""}, còn lại nhận model mặc định" : "${var.canary_percent}% user (sha256 của \"${var.canary_salt != "" ? var.canary_salt : var.canary_model}:user_id\") nhận ${var.canary_model}${var.canary_simulate_error ? " (ĐANG GIẢ LẬP LỖI)" : ""}, còn lại nhận model mặc định"
 }

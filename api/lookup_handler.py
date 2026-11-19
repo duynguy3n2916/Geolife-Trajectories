@@ -24,6 +24,10 @@ Biến môi trường:
         CANARY_MODEL = bản ỨNG VIÊN và phải có trong registry: nếu _default.json có danh sách "registered" mà không chứa
         CANARY_MODEL thì tắt canary (log canary_model_not_registered). File thiếu danh sách hoặc đọc S3 lỗi thì không chặn,
         để API không lỗi theo registry.
+    CANARY_USERS: danh sách user_id cách nhau dấu phẩy (do api/pick_canary_users.py chọn ngẫu nhiên đúng N%).
+        Có danh sách thì CHỈ các user đó vào nhóm canary, CANARY_PERCENT và muối bị bỏ qua.
+        Danh sách rỗng thì dùng cách băm theo CANARY_PERCENT như trên. Danh sách cũng phải đi cùng CANARY_MODEL
+        (và CANARY_MODEL vẫn phải có trong registry).
     CANARY_SIMULATE_ERROR = 1: người dùng thuộc nhóm canary bị lỗi 500 (giả lập model mới hỏng, chỉ để demo
         alarm + rollback); người dùng khác và /health vẫn chạy bình thường.
 Response của route tra cứu (200, và 404 user_not_found) có X-Model-Version và X-Canary (true / false).
@@ -55,6 +59,7 @@ if CANARY_MODEL and CANARY_MODEL not in VERSIONS:  # cấu hình sai: tắt cana
     print(json.dumps({"event": "canary_model_ignored", "canary_model": CANARY_MODEL}))
     CANARY_MODEL = None
 CANARY_SALT = os.environ.get("CANARY_SALT") or CANARY_MODEL or ""
+CANARY_USERS = frozenset(u.strip() for u in (os.environ.get("CANARY_USERS") or "").split(",") if u.strip())
 CANARY_SIMULATE_ERROR = os.environ.get("CANARY_SIMULATE_ERROR") == "1"
 _DEFAULT = {"v": None, "registered": None, "t": 0.0}
 
@@ -123,12 +128,19 @@ def user_bucket(user: str, salt: str | None = None) -> int:
     return int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:8], 16) % 100
 
 
+def in_canary(user: str) -> bool:
+    """Người dùng có thuộc nhóm canary không: có CANARY_USERS thì theo danh sách, không thì băm theo CANARY_PERCENT."""
+    if CANARY_USERS:
+        return user in CANARY_USERS
+    return user_bucket(user) < CANARY_PERCENT
+
+
 def choose_version(user: str, requested: str | None) -> tuple[str, bool]:
     """(version model, có phải nhóm canary không). Thứ tự: model_version người gọi chỉ định > canary theo người dùng > mặc định."""
     if requested:
         return requested, False
     cm = canary_model()
-    if cm and user_bucket(user) < CANARY_PERCENT:
+    if cm and in_canary(user):
         return cm, True
     return default_version(), False
 

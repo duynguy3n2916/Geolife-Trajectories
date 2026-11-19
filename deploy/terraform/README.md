@@ -77,7 +77,13 @@ Xem trạng thái alarm: console CloudWatch → Alarms, hoặc `aws cloudwatch d
 - `api/lookup_handler.py` băm chuỗi `"<muối>:<user_id>"` bằng sha256, lấy 8 ký tự hex đầu, chia lấy dư 100, ra số 0..99 cố định
   cho mỗi user (không dùng `hash()` của Python vì giá trị đổi mỗi lần Lambda khởi động). Số 0..99 là "ô phần trăm",
   không phải mã user: 182 user rải vào 100 ô.
-- User có số `< canary_percent` nhận `canary_model`; user còn lại nhận model mặc định (registry, hoặc `lookup_pinned_version`).
+- **Chia vai.** Registry (bản Approved) = **model nền**, user không thuộc nhóm canary nhận bản này.
+  `canary_model` = **bản ứng viên** đang thử, thường đang Pending trong registry. Thăng cấp = duyệt bản ứng viên trong
+  SageMaker Studio (API tự đổi, mục Registry bên dưới) rồi tắt canary. `lookup_pinned_version` để `""`, chỉ ghim khi khẩn cấp.
+- User có số `< canary_percent` nhận `canary_model`; user còn lại nhận model nền.
+- `canary_model` phải có trong registry (trừ bản Rejected): Lambda tra cứu đọc danh sách `registered` trong
+  `results/_default.json`; không có tên trong đó thì tắt canary, log `canary_model_not_registered`. File chưa có danh sách
+  hoặc đọc S3 lỗi thì không chặn, để API không lỗi theo registry.
 - Cùng một user luôn nhận cùng một model. Tăng 10 → 50 → 100 thì user đã ở nhóm canary vẫn ở đó, chỉ thêm user mới.
 - Muối = `canary_salt`, để `""` thì dùng tên `canary_model`. Giống cách LaunchDarkly, Unleash băm `tên flag + user`: mỗi đợt
   canary rút một nhóm khác, không user nào lần nào cũng vào canary trước. Trong một đợt (cùng muối) nhóm vẫn cố định.
@@ -89,25 +95,25 @@ Xem trạng thái alarm: console CloudWatch → Alarms, hoặc `aws cloudwatch d
 Script gọi cả 182 user 2 vòng, in số user mỗi model, danh sách user canary, số user đổi model giữa 2 vòng (phải là 0)
 và danh sách user bị lỗi.
 
-Registry đang duyệt `dbscan-v2`, nên để demo "đưa model mới ra dần" thì ghim model cũ làm mặc định rồi canary model mới:
+Kịch bản đưa `dbscan-v2` ra dần (giữ `lookup_pinned_version = ""` suốt kịch bản). Trước tiên cho registry duyệt model
+cũ làm nền: `python deploy/registry/register_models.py set-default heuristic-v1` (dbscan-v2 thành Pending = ứng viên).
 
-| Bước | `lookup_pinned_version` | `canary_model` | `canary_percent` | `canary_simulate_error` | Kết quả mong đợi (`canary_check.ps1`) |
+| Bước | Registry (Approved) | `canary_model` | `canary_percent` | `canary_simulate_error` | Kết quả mong đợi (`canary_check.ps1`) |
 |---|---|---|---|---|---|
-| 0. Mọi user dùng model cũ | `"heuristic-v1"` | `""` | `0` | `false` | 182 user `heuristic-v1`, `X-Canary=false` |
-| 1. Canary 10% user | `"heuristic-v1"` | `"dbscan-v2"` | `10` | `false` | 19 user `dbscan-v2` (`X-Canary=true`), 0 user đổi model giữa 2 vòng |
-| 2. Canary 50% user | `"heuristic-v1"` | `"dbscan-v2"` | `50` | `false` | 85 user; mọi user canary ở bước 1 vẫn có trong danh sách |
-| 3. Chuyển hẳn | `""` | `""` | `0` | `false` | registry đã duyệt `dbscan-v2` nên mọi user nhận `dbscan-v2` |
-| 4. Model mới hỏng ở 10% | `"heuristic-v1"` | `"dbscan-v2"` | `10` | `true` | 19 user canary trả 500, user khác 200; alarm `home-office-lookup-errors` gửi email sau vài phút |
-| 5. Rollback | `"heuristic-v1"` | `""` | `0` | `false` | mọi user về `heuristic-v1`, 0 lỗi |
-| 6. Dọn sau demo | `""` | `""` | `0` | `false` | mọi user theo registry |
+| 0. Mọi user dùng model nền | heuristic-v1 | `""` | `0` | `false` | 182 user `heuristic-v1`, `X-Canary=false` |
+| 1. Canary 10% user | heuristic-v1 | `"dbscan-v2"` | `10` | `false` | 19 user `dbscan-v2` (`X-Canary=true`), 0 user đổi model giữa 2 vòng |
+| 2. Canary 50% user | heuristic-v1 | `"dbscan-v2"` | `50` | `false` | 85 user; mọi user canary ở bước 1 vẫn có trong danh sách |
+| 3. Model mới hỏng ở 10% | heuristic-v1 | `"dbscan-v2"` | `10` | `true` | 19 user canary trả 500, user khác 200; alarm `home-office-lookup-errors` gửi email sau vài phút |
+| 4. Rollback | heuristic-v1 | `""` | `0` | `false` | mọi user về `heuristic-v1`, 0 lỗi |
+| 5. Thăng cấp | **dbscan-v2** (bấm Approve trong Studio, heuristic-v1 về Pending) | `""` | `0` | `false` | sau tối đa khoảng 1 phút mọi user nhận `dbscan-v2`, không cần apply |
 
 Số user (19, 85) là đếm thật với muối mặc định `dbscan-v2`, lệch khỏi đúng 10%, 50% vì 182 user còn ít;
 con số đang bật in trong `terraform output lookup_model_canary`.
 `canary_simulate_error` chỉ có tác dụng khi canary đang bật, và chỉ để demo: nó giả lập "model mới hỏng" để thấy
 lỗi chỉ trúng nhóm canary, alarm kêu, rồi rollback bằng `canary_percent = 0`.
 Rollback ở đây là tắt canary (Lambda cập nhật cấu hình, khoảng vài giây đến 1 phút cho `apply`), không phải lùi về bản cũ.
-Blue-green tương ứng: nhảy thẳng từ bước 0 sang bước 3 (đổi model mặc định một lần cho mọi người dùng).
-Sau khi chuyển hẳn, nếu registry chưa duyệt model mới thì chạy `python deploy/registry/register_models.py set-default dbscan-v2`.
+Blue-green tương ứng: nhảy thẳng từ bước 0 sang bước 5 (đổi model nền một lần cho mọi người dùng).
+Thăng cấp bằng lệnh thay cho bấm Studio: `python deploy/registry/register_models.py set-default dbscan-v2`.
 Trước 19/11/2026 canary làm bằng Lambda alias `live` chia traffic theo request (đã bỏ vì cùng user lúc thấy model này lúc
 model kia); xem lại trong lịch sử git nếu cần.
 

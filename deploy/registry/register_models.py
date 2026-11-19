@@ -158,8 +158,10 @@ def cmd_set_default(args) -> None:
             sm.update_model_package(ModelPackageArn=p["arn"], ModelApprovalStatus=want)
             print(f"{p['meta'].get('model_version')}: {p['status']} -> {want}")
     bucket = bucket_name(_account(sts))
+    registered = sorted({p["meta"].get("model_version") for p in packages if p["meta"].get("model_version")})
+    # Cùng định dạng với Lambda registry-sync: registered = version được phép làm canary (bản ứng viên).
     s3.put_object(Bucket=bucket, Key="results/_default.json", ContentType="application/json",
-                  Body=json.dumps({"default_model_version": args.version}).encode())
+                  Body=json.dumps({"default_model_version": args.version, "registered": registered}).encode())
     print(f"Đã ghi s3://{bucket}/results/_default.json = {args.version} (API đổi theo sau tối đa 60 giây)")
 
 

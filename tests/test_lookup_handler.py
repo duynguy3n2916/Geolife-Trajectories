@@ -27,6 +27,9 @@ def _client_error_cls():
         return ClientError
 
 
+DEFAULT_DOC = {"doc": None}   # nội dung results/_default.json giả; None = không có file
+
+
 class FakeS3:
     """Có kết quả của mọi user (cả 2 model), trừ user 999 (giả lập user không có nhà/công ty)."""
 
@@ -34,18 +37,24 @@ class FakeS3:
         self.err = err
 
     def get_object(self, Bucket, Key):
+        if Key == "results/_default.json":
+            if DEFAULT_DOC["doc"] is None:
+                raise self.err({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+            body = json.dumps(DEFAULT_DOC["doc"]).encode()
+            return {"Body": types.SimpleNamespace(read=lambda: body)}
         user = Key.rsplit("/", 1)[-1].removesuffix(".json")
         if Key.startswith(("results/dbscan-v2/", "results/heuristic-v1/")) and user != "999":
             return {"Body": types.SimpleNamespace(read=lambda: json.dumps(RESULT).encode())}
         raise self.err({"Error": {"Code": "NoSuchKey"}}, "GetObject")
 
 
-def load_handler(monkeypatch, auth_mode, **env):
+def load_handler(monkeypatch, auth_mode, default_doc=None, **env):
     """Nạp lookup_handler.py mới với biến môi trường cho trước (biến đọc lúc import).
 
     env: biến thêm, ví dụ CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10".
     """
     err = _client_error_cls()
+    DEFAULT_DOC["doc"] = default_doc
     monkeypatch.setenv("BUCKET", "test-bucket")
     monkeypatch.setenv("AUTH_MODE", auth_mode)
     monkeypatch.setenv("PINNED_VERSION", "dbscan-v2")
@@ -257,3 +266,47 @@ def test_simulate_error_only_canary_users(monkeypatch):
 def test_simulate_error_off_when_canary_off(monkeypatch):
     h = load_handler(monkeypatch, "jwt", CANARY_SIMULATE_ERROR="1")
     assert all(call(h, event(u, ADMIN))[0] == 200 for u in USERS[:30])
+
+
+# ---------- canary_model phải có trong registry (danh sách "registered" trong _default.json) ----------
+
+def test_canary_blocked_when_not_registered(monkeypatch):
+    h = load_handler(monkeypatch, "jwt", default_doc={"default_model_version": "dbscan-v2", "registered": ["dbscan-v2"]},
+                     CANARY_MODEL="heuristic-v1", CANARY_PERCENT="100")
+    assert canary_set(h) == set()
+
+
+def test_canary_allowed_when_registered(monkeypatch):
+    h = load_handler(monkeypatch, "jwt",
+                     default_doc={"default_model_version": "dbscan-v2", "registered": ["heuristic-v1", "dbscan-v2"]},
+                     CANARY_MODEL="heuristic-v1", CANARY_PERCENT="100")
+    assert canary_set(h) == set(USERS)
+
+
+def test_canary_not_blocked_without_list(monkeypatch):
+    """File cũ không có "registered" (hoặc không có file): không chặn, giữ hành vi cũ."""
+    h = load_handler(monkeypatch, "jwt", default_doc={"default_model_version": "dbscan-v2"},
+                     CANARY_MODEL="heuristic-v1", CANARY_PERCENT="100")
+    assert canary_set(h) == set(USERS)
+
+
+def test_registry_read_error_does_not_break_api(monkeypatch):
+    """S3 lỗi khi đọc _default.json: API vẫn trả 200, canary không bị chặn."""
+    h = load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="100")
+    err = _client_error_cls()
+    orig = h.S3.get_object
+
+    def boom(Bucket, Key):
+        if Key == "results/_default.json":
+            raise err({"Error": {"Code": "InternalError"}}, "GetObject")
+        return orig(Bucket=Bucket, Key=Key)
+    h.S3.get_object = boom
+    code, body = call(h, event("013", ADMIN))
+    assert code == 200
+
+
+def test_default_from_registry_when_not_pinned(monkeypatch):
+    h = load_handler(monkeypatch, "jwt", default_doc={"default_model_version": "heuristic-v1", "registered": ["heuristic-v1"]})
+    monkeypatch.setattr(h, "PINNED_VERSION", None)
+    code, body = call(h, event("153", ADMIN))
+    assert code == 200 and body["model_version"] == "heuristic-v1"

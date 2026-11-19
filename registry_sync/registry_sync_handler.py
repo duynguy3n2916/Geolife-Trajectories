@@ -5,6 +5,7 @@ Chuỗi sự kiện:
       -> SageMaker phát sự kiện "SageMaker Model Package State Change"
       -> EventBridge rule (deploy/terraform/registry_sync.tf) gọi Lambda này
       -> Lambda tìm version Approved của group, ghi s3://BUCKET/results/_default.json
+         {"default_model_version": <bản Approved>, "registered": [<mọi version trong registry trừ Rejected>]}
       -> Lambda tra cứu đọc lại file đó sau tối đa 60 giây.
 
 Quy tắc chọn (ghi rõ vì registry cho phép nhiều version cùng Approved):
@@ -12,7 +13,8 @@ Quy tắc chọn (ghi rõ vì registry cho phép nhiều version cùng Approved)
        Tên model lấy từ CustomerMetadataProperties["model_version"], không có thì lấy phần trước dấu ":" của Description.
     2. Nhiều version cùng Approved: lấy bản có LastModifiedTime mới nhất (bản vừa được duyệt), in cảnh báo multiple_approved.
     3. Không có version Approved nào: KHÔNG ghi gì (giữ nguyên _default.json cũ, API không bị gián đoạn), in no_approved.
-    4. Version chọn được trùng với _default.json đang có: không ghi lại (unchanged).
+    4. Version chọn được và danh sách registered trùng với _default.json đang có: không ghi lại (unchanged).
+    5. registered dùng để Lambda tra cứu chỉ cho phép CANARY_MODEL là version có trong registry (bản ứng viên).
 Lambda chỉ đọc registry, không tự đổi trạng thái version nào.
 
 Biến môi trường: BUCKET (bắt buộc), GROUP (mặc định "home-office"), VERSIONS (mặc định "heuristic-v1,dbscan-v2").
@@ -40,22 +42,29 @@ def model_name(desc: dict) -> str | None:
     return name or None
 
 
-def approved_packages() -> list[dict]:
-    """Mọi Model Package Approved của group có tên model hợp lệ: [{name, arn, modified}]."""
+def registry_packages() -> list[dict]:
+    """Mọi Model Package của group có tên model hợp lệ: [{name, arn, status, modified}]."""
     out = []
-    pages = SM.get_paginator("list_model_packages").paginate(ModelPackageGroupName=GROUP, ModelApprovalStatus="Approved")
-    for page in pages:
+    for page in SM.get_paginator("list_model_packages").paginate(ModelPackageGroupName=GROUP):
         for s in page.get("ModelPackageSummaryList", []):
             d = SM.describe_model_package(ModelPackageName=s["ModelPackageArn"])
-            if d.get("ModelApprovalStatus") != "Approved":      # trạng thái có thể vừa đổi giữa list và describe
-                continue
             name = model_name(d)
             if name not in VERSIONS:
                 print(json.dumps({"event": "unknown_model", "arn": s["ModelPackageArn"], "model": name}))
                 continue
-            out.append({"name": name, "arn": s["ModelPackageArn"],
+            out.append({"name": name, "arn": s["ModelPackageArn"], "status": d.get("ModelApprovalStatus"),
                         "modified": d.get("LastModifiedTime") or d.get("CreationTime")})
     return out
+
+
+def approved_packages(pkgs: list[dict] | None = None) -> list[dict]:
+    """Các bản Approved (trạng thái đọc bằng describe, mới nhất)."""
+    return [p for p in (registry_packages() if pkgs is None else pkgs) if p["status"] == "Approved"]
+
+
+def registered_names(pkgs: list[dict]) -> list[str]:
+    """Version có trong registry và không bị từ chối: được phép làm canary."""
+    return sorted({p["name"] for p in pkgs if p["status"] != "Rejected"})
 
 
 def choose(pkgs: list[dict]) -> dict | None:
@@ -65,34 +74,37 @@ def choose(pkgs: list[dict]) -> dict | None:
     return max(pkgs, key=lambda p: (p["modified"] is not None, p["modified"] or 0))
 
 
-def current_default() -> str | None:
+def current_doc() -> dict:
     try:
         body = S3.get_object(Bucket=BUCKET, Key=DEFAULT_KEY)["Body"].read()
-        return json.loads(body).get("default_model_version")
+        d = json.loads(body)
+        return d if isinstance(d, dict) else {}
     except ClientError as e:
         if e.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "AccessDenied"):
-            return None
+            return {}
         raise
     except ValueError:
-        return None
+        return {}
 
 
 def lambda_handler(event, context):
     detail = (event or {}).get("detail") or {}
     print(json.dumps({"event": "registry_change", "arn": detail.get("ModelPackageArn"),
                       "status": detail.get("ModelApprovalStatus")}))
-    pkgs = approved_packages()
-    best = choose(pkgs)
+    pkgs = registry_packages()
+    approved = approved_packages(pkgs)
+    best = choose(approved)
     if best is None:
         print(json.dumps({"event": "no_approved", "group": GROUP}))
         return {"written": False, "reason": "no_approved"}
-    if len(pkgs) > 1:
-        print(json.dumps({"event": "multiple_approved", "approved": sorted(p["name"] for p in pkgs), "chosen": best["name"]}))
-    old = current_default()
-    if old == best["name"]:
-        print(json.dumps({"event": "unchanged", "default_model_version": old}))
+    if len(approved) > 1:
+        print(json.dumps({"event": "multiple_approved", "approved": sorted(p["name"] for p in approved), "chosen": best["name"]}))
+    doc = {"default_model_version": best["name"], "registered": registered_names(pkgs)}
+    old_doc = current_doc()
+    old = old_doc.get("default_model_version")
+    if old_doc.get("default_model_version") == doc["default_model_version"] and old_doc.get("registered") == doc["registered"]:
+        print(json.dumps({"event": "unchanged", **doc}))
         return {"written": False, "reason": "unchanged", "default_model_version": old}
-    S3.put_object(Bucket=BUCKET, Key=DEFAULT_KEY, ContentType="application/json",
-                  Body=json.dumps({"default_model_version": best["name"]}).encode())
-    print(json.dumps({"event": "default_written", "from": old, "to": best["name"], "arn": best["arn"]}))
-    return {"written": True, "default_model_version": best["name"], "previous": old}
+    S3.put_object(Bucket=BUCKET, Key=DEFAULT_KEY, ContentType="application/json", Body=json.dumps(doc).encode())
+    print(json.dumps({"event": "default_written", "from": old, "to": best["name"], "registered": doc["registered"], "arn": best["arn"]}))
+    return {"written": True, "default_model_version": best["name"], "previous": old, "registered": doc["registered"]}

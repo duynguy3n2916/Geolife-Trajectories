@@ -60,9 +60,12 @@ class FakeSM:
 
 
 class FakeS3:
-    def __init__(self, err, default=None):
+    def __init__(self, err, default=None, registered=None):
         self.err = err
-        self.store = {} if default is None else {"results/_default.json": json.dumps({"default_model_version": default}).encode()}
+        doc = {"default_model_version": default}
+        if registered is not None:
+            doc["registered"] = registered
+        self.store = {} if default is None else {"results/_default.json": json.dumps(doc).encode()}
         self.puts = []
 
     def get_object(self, Bucket, Key):
@@ -77,9 +80,9 @@ class FakeS3:
         self.puts.append(json.loads(Body))
 
 
-def load(monkeypatch, packages, default=None):
+def load(monkeypatch, packages, default=None, registered=None):
     err = _client_error_cls()
-    sm, s3 = FakeSM(packages), FakeS3(err, default)
+    sm, s3 = FakeSM(packages), FakeS3(err, default, registered)
     monkeypatch.setenv("BUCKET", "test-bucket")
     monkeypatch.setitem(sys.modules, "boto3",
                         types.SimpleNamespace(client=lambda name, *a, **k: sm if name == "sagemaker" else s3))
@@ -104,13 +107,14 @@ def test_writes_approved_version(monkeypatch):
     h, sm, s3 = load(monkeypatch, [pkg(1, "heuristic-v1", "PendingManualApproval", 1), pkg(2, "dbscan-v2", "Approved", 2)],
                      default="heuristic-v1")
     r = h.lambda_handler(EVENT, None)
-    assert r == {"written": True, "default_model_version": "dbscan-v2", "previous": "heuristic-v1"}
-    assert s3.puts == [{"default_model_version": "dbscan-v2"}]
+    assert r == {"written": True, "default_model_version": "dbscan-v2", "previous": "heuristic-v1",
+                 "registered": ["dbscan-v2", "heuristic-v1"]}
+    assert s3.puts == [{"default_model_version": "dbscan-v2", "registered": ["dbscan-v2", "heuristic-v1"]}]
     assert sm.updated == []                         # chỉ đọc registry
 
 
 def test_unchanged_does_not_write(monkeypatch):
-    h, _, s3 = load(monkeypatch, [pkg(2, "dbscan-v2", "Approved", 2)], default="dbscan-v2")
+    h, _, s3 = load(monkeypatch, [pkg(2, "dbscan-v2", "Approved", 2)], default="dbscan-v2", registered=["dbscan-v2"])
     assert h.lambda_handler(EVENT, None)["reason"] == "unchanged"
     assert s3.puts == []
 
@@ -120,7 +124,7 @@ def test_multiple_approved_latest_wins(monkeypatch):
     h, _, s3 = load(monkeypatch, [pkg(1, "heuristic-v1", "Approved", 9), pkg(2, "dbscan-v2", "Approved", 5)],
                     default="dbscan-v2")
     r = h.lambda_handler(EVENT, None)
-    assert r["default_model_version"] == "heuristic-v1" and s3.puts == [{"default_model_version": "heuristic-v1"}]
+    assert r["default_model_version"] == "heuristic-v1" and s3.puts[0]["default_model_version"] == "heuristic-v1"
 
 
 def test_no_approved_keeps_old_default(monkeypatch):
@@ -160,3 +164,18 @@ def test_model_name(monkeypatch, desc, meta, want):
     if meta:
         d["CustomerMetadataProperties"] = meta
     assert h.model_name(d) == want
+
+
+def test_registered_excludes_rejected(monkeypatch):
+    """registered = mọi version trong registry trừ Rejected: bản Rejected không được làm canary."""
+    h, _, s3 = load(monkeypatch, [pkg(1, "heuristic-v1", "Rejected", 1), pkg(2, "dbscan-v2", "Approved", 2)])
+    h.lambda_handler(EVENT, None)
+    assert s3.puts == [{"default_model_version": "dbscan-v2", "registered": ["dbscan-v2"]}]
+
+
+def test_rewrites_when_only_registered_changes(monkeypatch):
+    """Model nền không đổi nhưng thêm version Pending mới: vẫn ghi lại để danh sách canary cập nhật."""
+    h, _, s3 = load(monkeypatch, [pkg(1, "heuristic-v1", "PendingManualApproval", 1), pkg(2, "dbscan-v2", "Approved", 2)],
+                    default="dbscan-v2", registered=["dbscan-v2"])
+    r = h.lambda_handler(EVENT, None)
+    assert r["written"] is True and s3.puts[0]["registered"] == ["dbscan-v2", "heuristic-v1"]

@@ -5,7 +5,9 @@ Route:
     GET /v1/users/{user_id}/home-office[?model_version=dbscan-v2]
 Đọc:
     s3://BUCKET/results/<version>/<user_id>.json   do Lambda batch ghi
-    s3://BUCKET/results/_default.json              {"default_model_version": "heuristic-v1"}  (nhớ 60 giây)
+    s3://BUCKET/results/_default.json              {"default_model_version": "heuristic-v1", "registered": [...]}  (nhớ 60 giây)
+        default_model_version = bản đã duyệt (Approved) trong registry = model NỀN, cho người dùng không thuộc nhóm canary.
+        registered = các version có trong registry (trừ Rejected); do Lambda registry-sync hoặc set-default ghi.
 Biến môi trường:
     BUCKET (bắt buộc); VERSIONS (mặc định "heuristic-v1,dbscan-v2"); DEFAULT_VERSION (khi chưa có _default.json);
     AUTH_MODE = none (mặc định) | jwt: route tra cứu đứng sau JWT authorizer Cognito (deploy/terraform/cognito.tf).
@@ -19,6 +21,9 @@ Biến môi trường:
         rút một nhóm người dùng khác, nên không ai lần nào cũng vào canary trước; trong một đợt thì nhóm vẫn cố định.
         Cùng người dùng luôn ra cùng số, nên gọi bao nhiêu lần cũng thấy cùng một model; tăng phần trăm thì nhóm cũ
         vẫn nằm trong nhóm canary. Người gọi truyền ?model_version=... thì bỏ qua canary.
+        CANARY_MODEL = bản ỨNG VIÊN và phải có trong registry: nếu _default.json có danh sách "registered" mà không chứa
+        CANARY_MODEL thì tắt canary (log canary_model_not_registered). File thiếu danh sách hoặc đọc S3 lỗi thì không chặn,
+        để API không lỗi theo registry.
     CANARY_SIMULATE_ERROR = 1: người dùng thuộc nhóm canary bị lỗi 500 (giả lập model mới hỏng, chỉ để demo
         alarm + rollback); người dùng khác và /health vẫn chạy bình thường.
 Response của route tra cứu (200, và 404 user_not_found) có X-Model-Version và X-Canary (true / false).
@@ -51,7 +56,7 @@ if CANARY_MODEL and CANARY_MODEL not in VERSIONS:  # cấu hình sai: tắt cana
     CANARY_MODEL = None
 CANARY_SALT = os.environ.get("CANARY_SALT") or CANARY_MODEL or ""
 CANARY_SIMULATE_ERROR = os.environ.get("CANARY_SIMULATE_ERROR") == "1"
-_DEFAULT = {"v": None, "t": 0.0}
+_DEFAULT = {"v": None, "registered": None, "t": 0.0}
 
 
 def _resp(status: int, body: dict, version: str | None = None, canary: bool | None = None) -> dict:
@@ -77,18 +82,36 @@ def _get_json(key: str):
         raise
 
 
-def default_version() -> str:
-    """Version mặc định: PINNED_VERSION nếu bản Lambda này được ghim, không thì results/_default.json (đọc lại sau 60 giây)."""
-    if PINNED_VERSION:
-        return PINNED_VERSION
+def _registry_state() -> dict:
+    """Đọc results/_default.json (nhớ 60 giây). Lỗi S3 thì giữ giá trị cũ, không ném lỗi ra ngoài."""
     if _DEFAULT["v"] is None or time.time() - _DEFAULT["t"] > 60:
         try:
             d = _get_json("results/_default.json") or {}
             _DEFAULT["v"] = d.get("default_model_version") or FALLBACK_DEFAULT
-        except ClientError:
+            reg = d.get("registered")
+            _DEFAULT["registered"] = [str(x) for x in reg] if isinstance(reg, list) else None
+        except (ClientError, ValueError):
             _DEFAULT["v"] = _DEFAULT["v"] or FALLBACK_DEFAULT
         _DEFAULT["t"] = time.time()
-    return _DEFAULT["v"]
+    return _DEFAULT
+
+
+def default_version() -> str:
+    """Model nền: PINNED_VERSION nếu được ghim, không thì bản Approved trong registry (results/_default.json)."""
+    if PINNED_VERSION:
+        return PINNED_VERSION
+    return _registry_state()["v"]
+
+
+def canary_model() -> str | None:
+    """CANARY_MODEL nếu được phép chạy: có cấu hình và (registry không có danh sách, hoặc có trong danh sách)."""
+    if not CANARY_MODEL:
+        return None
+    reg = _registry_state()["registered"]
+    if reg is not None and CANARY_MODEL not in reg:
+        print(json.dumps({"event": "canary_model_not_registered", "canary_model": CANARY_MODEL, "registered": reg}))
+        return None
+    return CANARY_MODEL
 
 
 def user_bucket(user: str, salt: str | None = None) -> int:
@@ -104,8 +127,9 @@ def choose_version(user: str, requested: str | None) -> tuple[str, bool]:
     """(version model, có phải nhóm canary không). Thứ tự: model_version người gọi chỉ định > canary theo người dùng > mặc định."""
     if requested:
         return requested, False
-    if CANARY_MODEL and user_bucket(user) < CANARY_PERCENT:
-        return CANARY_MODEL, True
+    cm = canary_model()
+    if cm and user_bucket(user) < CANARY_PERCENT:
+        return cm, True
     return default_version(), False
 
 

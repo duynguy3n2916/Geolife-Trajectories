@@ -2,8 +2,11 @@
 #
 # Cách hoạt động (code ở api/lookup_handler.py, hàm choose_version):
 #   - Handler băm chuỗi "<muối>:<user_id>" bằng sha256 ra một số 0..99 cố định cho mỗi người dùng.
-#   - Người dùng có số < canary_percent luôn nhận canary_model; người dùng còn lại nhận model mặc định
-#     (version được duyệt trong registry, results/_default.json, hoặc lookup_pinned_version nếu có ghim).
+#   - Người dùng có số < canary_percent luôn nhận canary_model (bản ỨNG VIÊN); người dùng còn lại nhận model NỀN
+#     = bản Approved trong registry (results/_default.json; lookup_pinned_version chỉ để ghi đè khi khẩn cấp).
+#   - canary_model phải có trong registry (danh sách "registered" trong results/_default.json, do registry_sync.tf ghi);
+#     không có thì Lambda tắt canary và log canary_model_not_registered. Đọc S3 lỗi thì không chặn, API không lỗi theo.
+#   - Thăng cấp: duyệt bản ứng viên trong SageMaker Studio (registry_sync.tf tự cập nhật API), rồi tắt canary.
 #   - Cùng một người dùng luôn thấy cùng một model; tăng 10 -> 50 -> 100 thì nhóm cũ vẫn nằm trong nhóm canary.
 #   - Muối = canary_salt, để "" thì dùng tên canary_model: mỗi model mới rút một nhóm người dùng khác.
 #   - Response có header X-Model-Version (model nào) và X-Canary (true / false).
@@ -14,7 +17,7 @@
 # Kịch bản từng bước: deploy/terraform/README.md, mục Canary.
 
 variable "lookup_pinned_version" {
-  description = "Version model mặc định ghim cho Lambda tra cứu (\"\" = theo version được duyệt trong registry)."
+  description = "Ghi đè model nền khi khẩn cấp (\"\" = bình thường: model nền là bản Approved trong registry)."
   type        = string
   default     = ""
 }

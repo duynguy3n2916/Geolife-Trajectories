@@ -169,17 +169,17 @@ resource "aws_iam_role_policy" "lookup_read" {
   })
 }
 
-# Nén handler.py thành zip (handler.py nằm ở gốc file zip). Sửa handler.py rồi `terraform apply` là code mới được đưa lên.
+# Nén api/lookup_handler.py thành zip (file nằm ở gốc zip). Sửa file đó rồi `terraform apply` là code mới được đưa lên.
 data "archive_file" "lookup" {
   type        = "zip"
-  source_file = "${path.module}/../../api/handler.py"
+  source_file = "${path.module}/../../api/lookup_handler.py"
   output_path = "${path.module}/build/lookup.zip"
 }
 
 resource "aws_lambda_function" "lookup" {
   function_name    = "home-office-lookup"
   runtime          = "python3.12"
-  handler          = "handler.lambda_handler"
+  handler          = "lookup_handler.lambda_handler"
   filename         = data.archive_file.lookup.output_path
   source_code_hash = data.archive_file.lookup.output_base64sha256
   role             = aws_iam_role.lookup.arn

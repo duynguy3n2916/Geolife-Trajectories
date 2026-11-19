@@ -1,4 +1,4 @@
-"""Test Lambda tra cứu (api/handler.py), phần đăng nhập Cognito (AUTH_MODE=jwt). S3 giả, không gọi AWS.
+"""Test Lambda tra cứu (api/lookup_handler.py), phần đăng nhập Cognito (AUTH_MODE=jwt). S3 giả, không gọi AWS.
 
 Chạy: pytest tests/test_lookup_handler.py (từ thư mục Home_Office). Không cần boto3 (tự giả lập nếu chưa cài).
 """
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-HANDLER = Path(__file__).resolve().parents[1] / "api" / "handler.py"
+HANDLER = Path(__file__).resolve().parents[1] / "api" / "lookup_handler.py"
 RESULT = {"home": {"lat": 39.99, "lon": 116.30, "confidence": 98.0, "n_votes": 40},
           "office": {"lat": 39.98, "lon": 116.35, "confidence": 90.0, "n_votes": 20}, "flags": []}
 
@@ -41,7 +41,7 @@ class FakeS3:
 
 
 def load_handler(monkeypatch, auth_mode, **env):
-    """Nạp handler.py mới với biến môi trường cho trước (biến đọc lúc import).
+    """Nạp lookup_handler.py mới với biến môi trường cho trước (biến đọc lúc import).
 
     env: biến thêm, ví dụ CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10".
     """

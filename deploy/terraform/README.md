@@ -49,7 +49,7 @@ Terraform in lại plan và hỏi; gõ `yes` mới thực hiện.
 | Muốn | Làm |
 |---|---|
 | Đổi RAM, timeout, giới hạn request | sửa `variables.tf`, rồi `plan`, `apply` |
-| Đưa code mới của `api\handler.py` lên | `plan`, `apply` (Terraform tự nén lại) |
+| Đưa code mới của `api\lookup_handler.py` lên | `plan`, `apply` (Terraform tự nén lại) |
 | Đưa image batch mới lên | build trong CloudShell như cũ (bước 3a, 3b), rồi `plan`, `apply` |
 | Xem địa chỉ API | `terraform output -raw api_url` |
 | Ghi địa chỉ API cho `test.ps1`, `canary_check.ps1` | `terraform output -raw api_url \| Set-Content -Encoding ascii ..\..\api\api_url.txt` |
@@ -73,7 +73,7 @@ Xem trạng thái alarm: console CloudWatch → Alarms, hoặc `aws cloudwatch d
 
 Đưa model mới ra dần cho một phần **người dùng** (không phải một phần request):
 
-- `api/handler.py` băm chuỗi `"<muối>:<user_id>"` bằng sha256, lấy 8 ký tự hex đầu, chia lấy dư 100, ra số 0..99 cố định
+- `api/lookup_handler.py` băm chuỗi `"<muối>:<user_id>"` bằng sha256, lấy 8 ký tự hex đầu, chia lấy dư 100, ra số 0..99 cố định
   cho mỗi user (không dùng `hash()` của Python vì giá trị đổi mỗi lần Lambda khởi động). Số 0..99 là "ô phần trăm",
   không phải mã user: 182 user rải vào 100 ô.
 - User có số `< canary_percent` nhận `canary_model`; user còn lại nhận model mặc định (registry, hoặc `lookup_pinned_version`).

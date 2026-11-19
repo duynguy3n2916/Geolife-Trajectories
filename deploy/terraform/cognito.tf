@@ -14,7 +14,7 @@
 #   - API Gateway gắn JWT authorizer vào route /v1/users/{user_id}/home-office; /health vẫn mở.
 #     Token gửi lên là ID token (có claim custom:geolife_id và cognito:groups; access token không có custom:geolife_id).
 #     API Gateway tự kiểm chữ ký, hạn, issuer và audience (= client id); sai thì trả 401, Lambda không chạy.
-#     Lambda (api/handler.py, AUTH_MODE=jwt) so custom:geolife_id với {user_id}: khác và không phải admin thì 403.
+#     Lambda (api/lookup_handler.py, AUTH_MODE=jwt) so custom:geolife_id với {user_id}: khác và không phải admin thì 403.
 #
 # Chi phí: gói LITE, miễn phí 10.000 người dùng hoạt động mỗi tháng. Không gửi email (tài khoản tạo bằng
 # deploy\cognito_users.ps1 với --message-action SUPPRESS), nên không tốn SES.

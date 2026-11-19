@@ -14,11 +14,11 @@ Home_Office/
 ├── .gitignore
 ├── api/                     mọi thứ của API
 │   ├── openapi.yaml         hợp đồng API (1.0.0-cp2): GET /health, GET /v1/users/{user_id}/home-office
-│   ├── handler.py           code API, chạy trong Lambda tra cứu (đọc kết quả tính sẵn trên S3)
+│   ├── lookup_handler.py    code API, chạy trong Lambda tra cứu (đọc kết quả tính sẵn trên S3)
 │   ├── test.ps1             gọi thử API trên AWS, so mã HTTP với mong đợi
 │   └── canary_check.ps1     đo tỉ lệ bản Lambda trả lời khi chạy canary
 ├── params/                  ngưỡng của từng version model (heuristic-v1.json, dbscan-v2.json), Lambda batch đọc từ S3
-├── batch/                   Lambda batch: handler.py, Dockerfile, build image (CloudShell), run_batch.ps1 chạy batch
+├── batch/                   Lambda batch: batch_handler.py, Dockerfile, build image (CloudShell), run_batch.ps1 chạy batch
 ├── deploy/                  hạ tầng và vận hành AWS: terraform/, data/ (upload), registry/, common.ps1 (xem deploy/README.md)
 ├── notes/
 │   ├── assumptions.md       ngưỡng và giả định, kèm căn cứ
@@ -175,7 +175,7 @@ python -m pytest tests
 | 7 | Gán home/office (bỏ phiếu), confidence % bootstrap, cờ | xong 2026-11-09 cho v1 và v2, gồm test chạy một lần (D19) | `src/places/home_office_conf.py`, `notebooks/test/15_test.ipynb` |
 | – | OpenAPI spec | 1.0.0-cp2, khớp API trên AWS | `api/openapi.yaml` |
 | 8 | Batch trên AWS: Lambda tính kết quả cho 182 user, 2 version | xong 2026-11-16 (166 user có kết quả mỗi version) | `batch/` |
-| 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `api/handler.py`, `deploy/terraform/` |
+| 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `api/lookup_handler.py`, `deploy/terraform/` |
 | 10 | Model registry (SageMaker), version được duyệt là mặc định của API | xong 2026-11-16 | `deploy/registry/register_models.py` |
 | 11 | Deploy strategy: canary model theo người dùng (băm sha256 `user_id`), có demo lỗi + rollback; bản alias cũ demo 2026-11-16 đã bỏ | sửa 2026-11-19 | `deploy/terraform/canary.tf`, `api/canary_check.ps1` |
 | 12 | Theo dõi: alarm, email, ngân sách | xong 2026-11-16 | `deploy/terraform/monitoring.tf` |

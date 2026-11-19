@@ -1,6 +1,6 @@
 # Deploy strategy: canary MODEL theo người dùng cho Lambda tra cứu.
 #
-# Cách hoạt động (code ở api/handler.py, hàm choose_version):
+# Cách hoạt động (code ở api/lookup_handler.py, hàm choose_version):
 #   - Handler băm chuỗi "<muối>:<user_id>" bằng sha256 ra một số 0..99 cố định cho mỗi người dùng.
 #   - Người dùng có số < canary_percent luôn nhận canary_model; người dùng còn lại nhận model mặc định
 #     (version được duyệt trong registry, results/_default.json, hoặc lookup_pinned_version nếu có ghim).

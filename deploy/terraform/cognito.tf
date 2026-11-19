@@ -111,7 +111,8 @@ resource "aws_cognito_user_pool_client" "app" {
   # Scope openid: ID token chứa mọi thuộc tính client được đọc (gồm custom:geolife_id) và cognito:groups.
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
-  allowed_oauth_scopes                 = ["openid", "email"]
+  # profile: đăng nhập qua Hosted UI thì ID token chỉ có thuộc tính custom (custom:geolife_id) khi xin scope profile.
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["COGNITO"]
   callback_urls                        = [for u in var.app_urls : "${u}/auth/callback"]
   logout_urls                          = [for u in var.app_urls : "${u}/"]

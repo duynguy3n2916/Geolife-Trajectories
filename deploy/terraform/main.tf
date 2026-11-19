@@ -197,6 +197,8 @@ resource "aws_lambda_function" "lookup" {
       { AUTH_MODE = var.auth_enabled ? "jwt" : "none", ADMIN_GROUP = aws_cognito_user_group.admin.name },
       var.lookup_pinned_version != "" ? { PINNED_VERSION = var.lookup_pinned_version } : {},
       var.lookup_simulate_error ? { SIMULATE_ERROR = "1" } : {},
+      # Canary model theo user (canary.tf): chỉ thêm biến khi bật, để mặc định không sinh bản Lambda mới.
+      local.model_canary_on ? { CANARY_MODEL = var.canary_model, CANARY_PERCENT = tostring(var.canary_percent) } : {},
     )
   }
 

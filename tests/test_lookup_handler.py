@@ -28,24 +28,31 @@ def _client_error_cls():
 
 
 class FakeS3:
-    """Chỉ có results/dbscan-v2/002.json và results/dbscan-v2/153.json."""
+    """Có kết quả của mọi user (cả 2 model), trừ user 999 (giả lập user không có nhà/công ty)."""
 
     def __init__(self, err):
         self.err = err
 
     def get_object(self, Bucket, Key):
         user = Key.rsplit("/", 1)[-1].removesuffix(".json")
-        if Key.startswith("results/dbscan-v2/") and user in ("002", "153"):
+        if Key.startswith(("results/dbscan-v2/", "results/heuristic-v1/")) and user != "999":
             return {"Body": types.SimpleNamespace(read=lambda: json.dumps(RESULT).encode())}
         raise self.err({"Error": {"Code": "NoSuchKey"}}, "GetObject")
 
 
-def load_handler(monkeypatch, auth_mode):
-    """Nạp handler.py mới với biến môi trường cho trước (biến đọc lúc import)."""
+def load_handler(monkeypatch, auth_mode, **env):
+    """Nạp handler.py mới với biến môi trường cho trước (biến đọc lúc import).
+
+    env: biến thêm, ví dụ CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10".
+    """
     err = _client_error_cls()
     monkeypatch.setenv("BUCKET", "test-bucket")
     monkeypatch.setenv("AUTH_MODE", auth_mode)
     monkeypatch.setenv("PINNED_VERSION", "dbscan-v2")
+    for k in ("CANARY_MODEL", "CANARY_PERCENT"):
+        monkeypatch.delenv(k, raising=False)
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
     monkeypatch.setitem(sys.modules, "boto3", types.SimpleNamespace(client=lambda *_a, **_k: FakeS3(err)))
     if "botocore.exceptions" not in sys.modules:
         monkeypatch.setitem(sys.modules, "botocore", types.ModuleType("botocore"))
@@ -66,6 +73,12 @@ def event(user, claims=None):
 def call(h, ev):
     r = h.lambda_handler(ev, types.SimpleNamespace(function_version="7"))
     return r["statusCode"], json.loads(r["body"])
+
+
+def call_full(h, ev):
+    """Như call nhưng trả cả headers."""
+    r = h.lambda_handler(ev, types.SimpleNamespace(function_version="7"))
+    return r["statusCode"], json.loads(r["body"]), r.get("headers", {})
 
 
 @pytest.fixture
@@ -125,3 +138,88 @@ def test_auth_off_open(monkeypatch):
     h = load_handler(monkeypatch, "none")
     code, _ = call(h, event("002"))
     assert code == 200
+
+
+# ---------- Canary model theo user (CANARY_MODEL + CANARY_PERCENT) ----------
+
+USERS = [f"{i:03d}" for i in range(182)]
+ADMIN = {"sub": "x", "cognito:groups": "[admin]"}
+
+
+def canary_handler(monkeypatch, percent, model="heuristic-v1"):
+    return load_handler(monkeypatch, "jwt", CANARY_MODEL=model, CANARY_PERCENT=str(percent))
+
+
+def canary_set(h):
+    """Tập user rơi vào nhóm canary (đọc qua header X-Canary)."""
+    out = set()
+    for u in USERS:
+        code, body, hd = call_full(h, event(u, ADMIN))
+        assert code == 200
+        if hd["X-Canary"] == "true":
+            assert body["model_version"] == "heuristic-v1" and hd["X-Model-Version"] == "heuristic-v1"
+            out.add(u)
+        else:
+            assert body["model_version"] == "dbscan-v2"
+    return out
+
+
+def test_bucket_deterministic(h):
+    """sha256 cố định: cùng user luôn cùng bucket (không dùng hash() của Python vì đổi theo tiến trình)."""
+    b = [h.user_bucket(u) for u in USERS]
+    assert b == [h.user_bucket(u) for u in USERS]
+    assert all(0 <= x < 100 for x in b)
+    assert h.user_bucket("153") == int(__import__("hashlib").sha256(b"153").hexdigest()[:8], 16) % 100
+
+
+def test_no_canary_by_default(h):
+    code, body, hd = call_full(h, event("153", {"sub": "abc", "custom:geolife_id": "153"}))
+    assert code == 200 and body["model_version"] == "dbscan-v2" and hd["X-Canary"] == "false"
+
+
+def test_canary_sticky_same_user(monkeypatch):
+    """Một user canary gọi 20 lần: luôn cùng model, luôn X-Canary=true."""
+    h = canary_handler(monkeypatch, 50)
+    u = next(x for x in USERS if h.user_bucket(x) < 50)
+    seen = {(call_full(h, event(u, ADMIN))[1]["model_version"], call_full(h, event(u, ADMIN))[2]["X-Canary"])
+            for _ in range(20)}
+    assert seen == {("heuristic-v1", "true")}
+
+
+def test_canary_percent_0_and_100(monkeypatch):
+    assert canary_set(canary_handler(monkeypatch, 0)) == set()
+    assert canary_set(canary_handler(monkeypatch, 100)) == set(USERS)
+
+
+def test_canary_grows_monotonic(monkeypatch):
+    """Tăng 10 -> 50 -> 100: user đã ở nhóm canary thì vẫn ở đó (không bị đổi qua lại)."""
+    s10 = canary_set(canary_handler(monkeypatch, 10))
+    s50 = canary_set(canary_handler(monkeypatch, 50))
+    assert s10 <= s50 <= set(USERS)
+    assert 5 <= len(s10) <= 35 and 60 <= len(s50) <= 120  # xấp xỉ 10% và 50% của 182 user
+
+
+def test_explicit_model_version_overrides_canary(monkeypatch):
+    h = canary_handler(monkeypatch, 100)
+    ev = event("153", ADMIN)
+    ev["queryStringParameters"] = {"model_version": "dbscan-v2"}
+    code, body, hd = call_full(h, ev)
+    assert code == 200 and body["model_version"] == "dbscan-v2" and hd["X-Canary"] == "false"
+
+
+def test_invalid_canary_model_ignored(monkeypatch):
+    h = canary_handler(monkeypatch, 100, model="khong-co")
+    assert h.CANARY_MODEL is None
+    assert canary_set(h) == set()
+
+
+@pytest.mark.parametrize("raw,want", [("abc", 0), ("-5", 0), ("150", 100), ("", 0)])
+def test_canary_percent_clamped(monkeypatch, raw, want):
+    h = load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT=raw)
+    assert h.CANARY_PERCENT == want
+
+
+def test_canary_header_on_404(monkeypatch):
+    h = canary_handler(monkeypatch, 100)
+    code, body, hd = call_full(h, event("999", ADMIN))
+    assert code == 404 and hd["X-Canary"] == "true" and hd["X-Model-Version"] == "heuristic-v1"

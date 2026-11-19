@@ -7,7 +7,7 @@ Toàn bộ hạ tầng AWS của dự án (bước 4 trong `deploy\README.md`).
 | `versions.tf` | phiên bản Terraform, provider, đăng nhập AWS, chốt đúng một tài khoản, nhãn chung |
 | `variables.tf` | RAM, timeout của 2 Lambda, giới hạn request API, tag image |
 | `main.tf` | bucket và ECR (chỉ đọc), Lambda batch + role + hàng đợi lỗi, Lambda tra cứu + role, API Gateway |
-| `canary.tf`, `canary.auto.tfvars` | alias `live` và điều khiển canary |
+| `canary.tf`, `canary.auto.tfvars` | alias `live` và điều khiển canary (canary code theo request, canary model theo user) |
 | `monitoring.tf`, `terraform.tfvars` | alarm, email báo động, ngân sách (email chỉ để trên máy) |
 | `outputs.tf` | giá trị in ra sau apply |
 
@@ -88,6 +88,38 @@ Sau mỗi bước, đo tỉ lệ thật (từ thư mục `Home_Office`): `.\api\
 Số bản (1, 2, 3) là số thật Lambda cấp, xem bằng `terraform output lookup_latest_version`; nếu khác bảng thì dùng số thật.
 Blue-green là trường hợp đặc biệt: chuyển thẳng từ bước 0 sang bước 3, giữ bản cũ để quay lại tức thì.
 Sau khi chuyển hẳn sang `dbscan-v2`, nên chạy `python deploy/registry/register_models.py set-default dbscan-v2` để registry khớp.
+
+### Canary model theo user (`canary_model`, `canary_percent`)
+
+Canary bằng alias ở trên bốc thăm **theo từng request**: cùng một người gọi 2 lần có thể lúc ra `heuristic-v1`,
+lúc ra `dbscan-v2`, nên gợi ý nhà/công ty trên app nhảy qua lại. Cách đó hợp với đổi **code**, không hợp với đổi **model**.
+Canary model theo user sửa chỗ này:
+
+- `api/handler.py` băm `user_id` bằng sha256, lấy 8 ký tự hex đầu, chia lấy dư 100, ra số 0..99 cố định cho mỗi user
+  (không dùng `hash()` của Python vì giá trị đổi mỗi lần Lambda khởi động).
+- User có số `< canary_percent` nhận `canary_model`; user còn lại nhận model mặc định (registry, hoặc `lookup_pinned_version`).
+- Cùng một user luôn nhận cùng một model. Tăng 10 → 50 → 100 thì user đã ở nhóm canary vẫn ở đó, chỉ thêm user mới.
+- Response có header `X-Canary: true/false` (cả trên 404 `user_not_found`). Truyền `?model_version=` thì bỏ qua canary.
+- Terraform chỉ thêm biến môi trường `CANARY_MODEL`, `CANARY_PERCENT` khi bật, nên để mặc định (`""`, `0`) không sinh bản Lambda mới.
+  Mỗi lần đổi `canary_percent` thì sinh một bản Lambda mới và alias chuyển 100% sang bản đó (giữ `stable_version = ""`).
+
+Đo sau mỗi bước (từ thư mục `Home_Office`, cần tài khoản admin): `.\api\canary_check.ps1 -AllUsers`.
+Script gọi cả 182 user 2 vòng, in số user mỗi model, danh sách user canary, và số user đổi model giữa 2 vòng (phải là 0).
+
+Registry đang duyệt `dbscan-v2`, nên để demo "đưa model mới ra dần" thì ghim model cũ làm mặc định rồi canary model mới:
+
+| Bước | `lookup_pinned_version` | `canary_model` | `canary_percent` | Kết quả mong đợi (`canary_check.ps1 -AllUsers`) |
+|---|---|---|---|---|
+| 0. Mọi user dùng model cũ | `"heuristic-v1"` | `""` | `0` | 182 user `heuristic-v1`, `X-Canary=false` |
+| 1. Canary 10% user | `"heuristic-v1"` | `"dbscan-v2"` | `10` | khoảng 18 user `dbscan-v2` (`X-Canary=true`), 0 user đổi model giữa 2 vòng |
+| 2. Canary 50% user | `"heuristic-v1"` | `"dbscan-v2"` | `50` | khoảng 91 user; mọi user canary ở bước 1 vẫn có trong danh sách |
+| 3. Chuyển hẳn | `""` | `""` | `0` | registry đã duyệt `dbscan-v2` nên mọi user nhận `dbscan-v2` |
+| Rollback (bất kỳ lúc nào) | giữ nguyên | `""` | `0` | mọi user về model mặc định |
+
+Số user là xấp xỉ (băm không chia đều tuyệt đối); con số thật in trong `terraform output lookup_model_canary` và trong script.
+Mỗi bước đặt `stable_version = ""`, `canary_weight = 0`, `lookup_simulate_error = false`.
+Đừng trộn 2 kiểu cùng lúc: đang chia alias theo request mà bật thêm canary theo user thì rất khó đọc kết quả.
+Tóm tắt khi trình bày: **canary code theo request (alias), canary model theo người dùng (handler)**.
 
 ## Đăng nhập Cognito (`cognito.tf`)
 

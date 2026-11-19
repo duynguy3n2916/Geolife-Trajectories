@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Home/Office Inference API
-  version: 1.1.0-cp2
+  version: 1.2.0-cp2
   description: |
     Gợi ý **home** và **office** của một người dùng cho thanh tìm kiếm của app đặt xe.
 
@@ -26,6 +26,9 @@ info:
     **Version model.** Có `heuristic-v1` (gom cụm tham lam 200 m) và `dbscan-v2` (DBSCAN). Version mặc định là bản
     đang được duyệt trong model registry. Có thể chọn bằng `model_version`. Response và header `X-Model-Version`
     ghi version đã dùng.
+    Khi đang chạy **canary model theo người dùng**, một phần người dùng (chọn cố định theo `user_id`, băm sha256)
+    nhận version model mới thay cho version mặc định; cùng một người dùng luôn nhận cùng một version.
+    Header `X-Canary: true` cho biết người dùng này đang ở nhóm canary. Truyền `model_version` thì bỏ qua canary.
 
     **Đăng nhập (Amazon Cognito, đang bật).** Tài khoản nằm trong Cognito User Pool `home-office-users`, đăng nhập bằng
     email + mật khẩu (`InitiateAuth`, luồng `USER_PASSWORD_AUTH`, app client không có secret). Cognito trả ID token
@@ -112,6 +115,8 @@ paths:
           headers:
             X-Model-Version:
               $ref: '#/components/headers/XModelVersion'
+            X-Canary:
+              $ref: '#/components/headers/XCanary'
           content:
             application/json:
               schema:
@@ -157,6 +162,11 @@ components:
     XModelVersion:
       description: Version model đã dùng để tính kết quả
       schema: {type: string}
+    XCanary:
+      description: |
+        `true` nếu người dùng này đang ở nhóm canary model (nhận version model mới), `false` nếu không.
+        Cố định theo `user_id` trong suốt một đợt canary. Cũng có trên 404 `user_not_found`.
+      schema: {type: string, enum: ['true', 'false']}
   parameters:
     UserId:
       name: user_id

@@ -49,7 +49,7 @@ def load_handler(monkeypatch, auth_mode, **env):
     monkeypatch.setenv("BUCKET", "test-bucket")
     monkeypatch.setenv("AUTH_MODE", auth_mode)
     monkeypatch.setenv("PINNED_VERSION", "dbscan-v2")
-    for k in ("CANARY_MODEL", "CANARY_PERCENT", "CANARY_SALT"):
+    for k in ("CANARY_MODEL", "CANARY_PERCENT", "CANARY_SALT", "CANARY_SIMULATE_ERROR"):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -238,3 +238,22 @@ def test_canary_header_on_404(monkeypatch):
     h = canary_handler(monkeypatch, 100)
     code, body, hd = call_full(h, event("999", ADMIN))
     assert code == 404 and hd["X-Canary"] == "true" and hd["X-Model-Version"] == "heuristic-v1"
+
+
+def test_simulate_error_only_canary_users(monkeypatch):
+    """CANARY_SIMULATE_ERROR: chỉ user canary bị lỗi (Lambda ném lỗi -> API trả 500), user khác vẫn 200."""
+    h = load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10", CANARY_SIMULATE_ERROR="1")
+    bad = [u for u in USERS if h.user_bucket(u) < 10]
+    good = [u for u in USERS if h.user_bucket(u) >= 10]
+    assert bad and good
+    for u in bad:
+        with pytest.raises(RuntimeError):
+            call(h, event(u, ADMIN))
+    assert all(call(h, event(u, ADMIN))[0] == 200 for u in good)
+    r = h.lambda_handler({"routeKey": "GET /health"}, None)
+    assert r["statusCode"] == 200
+
+
+def test_simulate_error_off_when_canary_off(monkeypatch):
+    h = load_handler(monkeypatch, "jwt", CANARY_SIMULATE_ERROR="1")
+    assert all(call(h, event(u, ADMIN))[0] == 200 for u in USERS[:30])

@@ -11,17 +11,16 @@ Biến môi trường:
     AUTH_MODE = none (mặc định) | jwt: route tra cứu đứng sau JWT authorizer Cognito (deploy/terraform/cognito.tf).
         API Gateway đã kiểm chữ ký / hạn token (sai thì 401, Lambda không chạy). Lambda đọc claims của ID token:
         `custom:geolife_id` phải bằng {user_id}, trừ khi `cognito:groups` có ADMIN_GROUP (mặc định "admin"); sai thì 403.
-    PINNED_VERSION: nếu có, bản Lambda này luôn dùng version model đó làm mặc định (bỏ qua _default.json).
-        Dùng cho canary: bản cũ theo registry, bản mới ghim version mới; alias "live" chia traffic giữa hai bản.
-    SIMULATE_ERROR = 1: route tra cứu cố ý ném lỗi (chỉ để demo rollback canary; /health vẫn chạy).
+    PINNED_VERSION: nếu có, luôn dùng version model đó làm mặc định (bỏ qua _default.json).
+        Dùng khi demo canary: ghim model cũ làm mặc định, model mới chạy canary cho một phần người dùng.
     CANARY_MODEL + CANARY_PERCENT: canary model CỐ ĐỊNH THEO NGƯỜI DÙNG. Băm user_id (sha256) ra một số 0..99;
         số < CANARY_PERCENT thì người dùng đó luôn nhận CANARY_MODEL, còn lại nhận version mặc định.
     CANARY_SALT: "muối" băm cùng user_id (sha256("<muối>:<user_id>")), mặc định = CANARY_MODEL. Mỗi đợt canary (muối khác)
         rút một nhóm người dùng khác, nên không ai lần nào cũng vào canary trước; trong một đợt thì nhóm vẫn cố định.
         Cùng người dùng luôn ra cùng số, nên gọi bao nhiêu lần cũng thấy cùng một model; tăng phần trăm thì nhóm cũ
-        vẫn nằm trong nhóm canary. Khác alias "live" (chia ngẫu nhiên theo request, dùng cho canary code).
-        Người gọi truyền ?model_version=... thì bỏ qua canary.
-Mọi response có header X-Lambda-Version (số version Lambda đã trả lời) để đếm tỉ lệ canary.
+        vẫn nằm trong nhóm canary. Người gọi truyền ?model_version=... thì bỏ qua canary.
+    CANARY_SIMULATE_ERROR = 1: người dùng thuộc nhóm canary bị lỗi 500 (giả lập model mới hỏng, chỉ để demo
+        alarm + rollback); người dùng khác và /health vẫn chạy bình thường.
 Response của route tra cứu (200, và 404 user_not_found) có X-Model-Version và X-Canary (true / false).
 Lỗi trả JSON {"code", "message"} theo schema Error của api/openapi.yaml. Không ghi toạ độ vào log.
 """
@@ -42,7 +41,6 @@ AUTH_MODE = os.environ.get("AUTH_MODE", "none")
 ADMIN_GROUP = os.environ.get("ADMIN_GROUP", "admin")
 USER_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")          # chặn ký tự lạ để không ai chèn đường dẫn vào key S3
 PINNED_VERSION = os.environ.get("PINNED_VERSION") or None
-SIMULATE_ERROR = os.environ.get("SIMULATE_ERROR") == "1"
 CANARY_MODEL = os.environ.get("CANARY_MODEL") or None
 try:
     CANARY_PERCENT = max(0, min(100, int(os.environ.get("CANARY_PERCENT") or 0)))
@@ -52,12 +50,12 @@ if CANARY_MODEL and CANARY_MODEL not in VERSIONS:  # cấu hình sai: tắt cana
     print(json.dumps({"event": "canary_model_ignored", "canary_model": CANARY_MODEL}))
     CANARY_MODEL = None
 CANARY_SALT = os.environ.get("CANARY_SALT") or CANARY_MODEL or ""
+CANARY_SIMULATE_ERROR = os.environ.get("CANARY_SIMULATE_ERROR") == "1"
 _DEFAULT = {"v": None, "t": 0.0}
-_FN_VERSION = {"v": "$LATEST"}                           # số version Lambda của lần gọi hiện tại
 
 
 def _resp(status: int, body: dict, version: str | None = None, canary: bool | None = None) -> dict:
-    headers = {"Content-Type": "application/json", "Cache-Control": "no-store", "X-Lambda-Version": _FN_VERSION["v"]}
+    headers = {"Content-Type": "application/json", "Cache-Control": "no-store"}
     if version:
         headers["X-Model-Version"] = version
     if canary is not None:
@@ -146,20 +144,18 @@ def check_access(event, user: str):
 
 def lambda_handler(event, context):
     """Điểm vào: API Gateway gọi hàm này cho mỗi request."""
-    _FN_VERSION["v"] = getattr(context, "function_version", None) or "$LATEST"
     route = event.get("routeKey") or ""
     if route == "GET /health":
         return _resp(200, {"status": "ok", "default_model_version": default_version()})
     if route != "GET /v1/users/{user_id}/home-office":
         return _err(404, "not_found", "Không có đường dẫn này")
-    if SIMULATE_ERROR:
-        raise RuntimeError("Lỗi giả lập (SIMULATE_ERROR=1) để demo rollback canary")
-
     user = (event.get("pathParameters") or {}).get("user_id") or ""
     if not USER_RE.match(user):
         return _err(422, "validation_error", "user_id không hợp lệ")
     qs = event.get("queryStringParameters") or {}
     version, canary = choose_version(user, qs.get("model_version"))
+    if canary and CANARY_SIMULATE_ERROR:
+        raise RuntimeError("Lỗi giả lập (CANARY_SIMULATE_ERROR=1): model canary hỏng, để demo alarm + rollback")
     if version not in VERSIONS:
         return _err(422, "unknown_model_version", f"model_version phải là một trong: {', '.join(VERSIONS)}")
 

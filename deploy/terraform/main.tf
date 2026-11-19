@@ -1,5 +1,5 @@
 # Hạ tầng chính của Home/Office: Lambda batch, Lambda tra cứu, API Gateway và quyền IAM.
-# Canary (alias live) ở canary.tf, alarm và ngân sách ở monitoring.tf, đăng nhập Cognito ở cognito.tf.
+# Canary model theo người dùng ở canary.tf, alarm và ngân sách ở monitoring.tf, đăng nhập Cognito ở cognito.tf.
 #
 # Terraform KHÔNG quản lý (chỉ đọc, hoặc để ngoài hẳn):
 #   - bucket S3 (dữ liệu GPS, params, kết quả): chỉ đọc bằng "data", nên Terraform không thể xoá hay tạo lại;
@@ -186,20 +186,16 @@ resource "aws_lambda_function" "lookup" {
   memory_size      = var.lookup_memory_mb
   timeout          = var.lookup_timeout_s
 
-  # Mỗi lần đổi code hoặc cấu hình, Lambda ghi lại một bản cố định đánh số 1, 2, 3...
-  # Alias "live" (canary.tf) chọn bản nào phục vụ người dùng, và chia traffic khi chạy canary.
-  publish = true
-
   environment {
     variables = merge(
       { BUCKET = data.aws_s3_bucket.main.id },
       # jwt: so claim custom:geolife_id của token với user_id, nhóm admin xem mọi user (cognito.tf).
       { AUTH_MODE = var.auth_enabled ? "jwt" : "none", ADMIN_GROUP = aws_cognito_user_group.admin.name },
       var.lookup_pinned_version != "" ? { PINNED_VERSION = var.lookup_pinned_version } : {},
-      var.lookup_simulate_error ? { SIMULATE_ERROR = "1" } : {},
-      # Canary model theo user (canary.tf): chỉ thêm biến khi bật, để mặc định không sinh bản Lambda mới.
+      # Canary model theo user (canary.tf): chỉ thêm biến khi bật.
       local.model_canary_on ? { CANARY_MODEL = var.canary_model, CANARY_PERCENT = tostring(var.canary_percent) } : {},
       local.model_canary_on && var.canary_salt != "" ? { CANARY_SALT = var.canary_salt } : {},
+      local.model_canary_on && var.canary_simulate_error ? { CANARY_SIMULATE_ERROR = "1" } : {},
     )
   }
 
@@ -216,16 +212,25 @@ resource "aws_apigatewayv2_api" "main" {
 }
 
 # Một integration (gọi Lambda, payload 2.0) dùng chung cho cả hai route.
-# Gọi alias "live" chứ không gọi thẳng function, để alias chia traffic khi canary (canary.tf).
+# Gọi thẳng function (canary model chọn trong handler theo user, không cần alias chia traffic).
 resource "aws_apigatewayv2_integration" "lookup" {
   api_id                 = aws_apigatewayv2_api.main.id
   integration_type       = "AWS_PROXY"
   integration_method     = "POST"
-  integration_uri        = aws_lambda_alias.live.arn
+  integration_uri        = aws_lambda_function.lookup.arn
   payload_format_version = "2.0"
 
-  # Quyền gọi alias phải có trước khi chuyển integration sang alias, để API không lỗi trong lúc đổi.
-  depends_on = [aws_lambda_permission.apigw_live]
+  # Quyền gọi function phải có trước khi chuyển integration sang function, để API không lỗi trong lúc đổi.
+  depends_on = [aws_lambda_permission.apigw_lookup]
+}
+
+# Quyền cho API Gateway (mọi stage, mọi route của API này) gọi Lambda tra cứu.
+resource "aws_lambda_permission" "apigw_lookup" {
+  statement_id  = "apigw-invoke-function"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lookup.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
 
 resource "aws_apigatewayv2_route" "health" {

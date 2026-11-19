@@ -5,7 +5,7 @@ Mọi lệnh chạy trong **PowerShell, từ thư mục `Home_Office`** (trừ m
 Vùng: Singapore (`ap-southeast-1`). Profile AWS CLI: `home-office` (đăng nhập bằng `aws login --profile home-office --region ap-southeast-1`).
 
 Chia việc:
-- **Hạ tầng** (2 Lambda, role, hàng đợi lỗi, API Gateway, alias canary, alarm, ngân sách): Terraform, trong `terraform\`
+- **Hạ tầng** (2 Lambda, role, hàng đợi lỗi, API Gateway, canary model theo user, alarm, ngân sách): Terraform, trong `terraform\`
   (xem `terraform\README.md`).
   Đừng sửa hạ tầng bằng console hay AWS CLI: lần `terraform plan` sau sẽ thấy khác và đề nghị sửa ngược lại.
 - **Dữ liệu**: `data\` trong thư mục này (đưa GPS, ngưỡng lên S3).
@@ -23,7 +23,7 @@ params (ngưỡng)  ──►  S3  models/<version>/params.json
                           ▼
                      S3  results/<version>/<user>.json
                           ▲
-App ──► API Gateway home-office-api ──► alias live ──► Lambda tra cứu home-office-lookup (zip, 256 MB)
+App ──► API Gateway home-office-api ──► Lambda tra cứu home-office-lookup (zip, 256 MB)
         GET /health
         GET /v1/users/{user_id}/home-office[?model_version=...]
 
@@ -66,8 +66,7 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | thêm version model mới | `params\<version>.json`, 2, 6, rồi `register_models.py register` |
 | RAM, timeout, giới hạn request | `deploy\terraform\variables.tf`, rồi 4 |
 | bật / tắt đăng nhập | `auth_enabled` trong `deploy\terraform\terraform.tfvars`, rồi 4 (xem `terraform\README.md`, mục Đăng nhập Cognito) |
-| đưa bản Lambda tra cứu mới ra dần (canary) | sửa `deploy\terraform\canary.auto.tfvars`, rồi 4 (xem `terraform\README.md`, mục Canary) |
-| đưa model mới ra dần cho một phần người dùng (canary model theo user) | sửa `canary_model`, `canary_percent` trong `deploy\terraform\canary.auto.tfvars`, rồi 4 (xem `terraform\README.md`, mục Canary model theo user) |
+| đưa model mới ra dần cho một phần người dùng (canary model theo user) | sửa `canary_model`, `canary_percent` trong `deploy\terraform\canary.auto.tfvars`, rồi 4 (xem `terraform\README.md`, mục Canary model theo người dùng) |
 
 ## File nào làm gì
 
@@ -84,11 +83,11 @@ Chia tập (`data\split\users.csv`, D19) chỉ dùng cho đánh giá trong noteb
 | `..\batch\run_batch.ps1` | Bước 6: gọi Lambda batch cho mọi cặp (user, model), đồng bộ hoặc `-Async`, ghi log `batch\runs\`, đếm file mới, lưu biên bản `results/_runs/`. |
 | `cognito_users.ps1` | Bước 7b: tạo hoặc cập nhật tài khoản Cognito cho mọi user GeoLife (`userNNN@example.com`, 182 tài khoản) và `admin@example.com`, đặt mật khẩu chính thức, thêm admin vào nhóm `admin`. |
 | `registry\register_models.py` | Bước 7: đăng ký version vào SageMaker Model Registry (`register`, `list`, `default`), duyệt version mặc định và ghi `results/_default.json` (`set-default`). |
-| `..\api\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, kiểm quyền khi `AUTH_MODE=jwt` (claim `custom:geolife_id`, nhóm `admin`), `PINNED_VERSION` và `SIMULATE_ERROR` cho canary code, `CANARY_MODEL` + `CANARY_PERCENT` (+ `CANARY_SALT`) cho canary model theo user (băm sha256 của `muối:user_id`, header `X-Canary`). |
+| `..\api\handler.py` | Code của Lambda tra cứu: route, kiểm tra `user_id` / `model_version`, đọc `results/`, trả lỗi theo `api\openapi.yaml`, kiểm quyền khi `AUTH_MODE=jwt` (claim `custom:geolife_id`, nhóm `admin`), `PINNED_VERSION` (model mặc định ghim), `CANARY_MODEL` + `CANARY_PERCENT` (+ `CANARY_SALT`, `CANARY_SIMULATE_ERROR`) cho canary model theo user (băm sha256 của `muối:user_id`, header `X-Canary`). |
 | `..\api\test.ps1` | Bước 8: đăng nhập tài khoản demo, gọi thử API và so mã HTTP với mong đợi (`-NoAuth` khi tắt đăng nhập). |
 | `..\api\auth.ps1` | Hàm `Get-IdToken` (đăng nhập Cognito bằng email + mật khẩu, trả ID token), `Read-DemoPassword`. Các script trong `api\` nạp file này. |
 | `..\api\get_token.ps1` | In ID token của một tài khoản, để gọi API bằng tay. |
-| `..\api\canary_check.ps1` | Demo canary: gọi API nhiều lần, đếm bản Lambda nào trả lời và tỉ lệ lỗi. `-AllUsers`: gọi cả 182 user 2 vòng, đếm user mỗi model và kiểm tra không user nào đổi model. |
+| `..\api\canary_check.ps1` | Demo canary: gọi cả 182 user 2 vòng, đếm user mỗi model, kiểm tra không user nào đổi model, liệt kê user lỗi. |
 | `bench\results\` | Kết quả thử nghiệm đo thời gian và RAM ngày 12/11 (chỉ trên máy, không có trong git; script đo đã xoá, xem lịch sử git nếu cần đo lại). |
 
 Hàm trong `src\params.py` (dùng bởi Lambda batch): `load` (đọc params từ máy hoặc S3), `validate`, `to_kwargs` (chia params cho từng bước), `run_pipeline` (stay point, gom địa điểm, bỏ phiếu), `build` và CLI `write` (sinh `params\*.json`), `check` (đối chiếu file với code).

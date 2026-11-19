@@ -2,7 +2,7 @@
 
 Suy ra vị trí **home** và **office** của mỗi user từ dữ liệu GPS GeoLife 1.3, rồi phục vụ kết quả qua API trên AWS.
 
-Trạng thái: **Checkpoint 2**. Pipeline và 2 version model (`heuristic-v1`, `dbscan-v2`) chạy trên AWS: Lambda tính kết quả theo lô, API Gateway + Lambda tra cứu, SageMaker Model Registry, canary bằng Lambda alias, hạ tầng bằng Terraform. Chi tiết triển khai: `deploy/README.md`.
+Trạng thái: **Checkpoint 2**. Pipeline và 2 version model (`heuristic-v1`, `dbscan-v2`) chạy trên AWS: Lambda tính kết quả theo lô, API Gateway + Lambda tra cứu, SageMaker Model Registry, canary model theo người dùng, hạ tầng bằng Terraform. Chi tiết triển khai: `deploy/README.md`.
 
 ## Cấu trúc
 
@@ -177,7 +177,7 @@ python -m pytest tests
 | 8 | Batch trên AWS: Lambda tính kết quả cho 182 user, 2 version | xong 2026-11-16 (166 user có kết quả mỗi version) | `batch/` |
 | 9 | API trên AWS: API Gateway + Lambda tra cứu, giới hạn 20 request/giây | xong 2026-11-13 | `api/handler.py`, `deploy/terraform/` |
 | 10 | Model registry (SageMaker), version được duyệt là mặc định của API | xong 2026-11-16 | `deploy/registry/register_models.py` |
-| 11 | Deploy strategy: canary bằng Lambda alias, có demo rollback | xong 2026-11-16 | `deploy/terraform/canary.tf`, `api/canary_check.ps1` |
+| 11 | Deploy strategy: canary model theo người dùng (băm sha256 `user_id`), có demo lỗi + rollback; bản alias cũ demo 2026-11-16 đã bỏ | sửa 2026-11-19 | `deploy/terraform/canary.tf`, `api/canary_check.ps1` |
 | 12 | Theo dõi: alarm, email, ngân sách | xong 2026-11-16 | `deploy/terraform/monitoring.tf` |
 
 Ngưỡng và giả định: xem `notes/assumptions.md` (tất cả đã chốt 2026-11-07; A11 và A15 là quy ước, A11 kiểm lại ở `notebooks/tuning/13`). Mục ("mục N") đánh số riêng trong từng notebook; tham chiếu từ file khác ghi kèm tên notebook, ví dụ "mục 2.1 (notebook 11)". Mục của từng notebook: xem cây thư mục ở đầu file.

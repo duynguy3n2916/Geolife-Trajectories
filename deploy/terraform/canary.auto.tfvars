@@ -10,7 +10,7 @@ lookup_pinned_version = ""
 
 # canary_percent % người dùng (cố định theo user_id) nhận canary_model.
 # Ví dụ registry duyệt heuristic-v1: canary_model = "dbscan-v2", canary_percent = 10.
-# Tắt (rollback): canary_model = "" (tắt cả canary_percent lẫn canary_users).
+# Tắt (rollback): canary_model = "", canary_percent = 0.
 canary_model   = "dbscan-v2"
 canary_percent = 10
 
@@ -20,8 +20,3 @@ canary_simulate_error = false
 # Muối băm cùng user_id. "" = dùng tên canary_model (mỗi model mới rút một nhóm user khác).
 # Chỉ đặt khi muốn chạy lại cùng model với một nhóm khác, ví dụ canary_salt = "dbscan-v2-dot2".
 canary_salt = ""
-
-# Danh sách user canary chọn ngẫu nhiên đúng N% (trong số user có kết quả). Đừng gõ tay, chạy từ thư mục Home_Office:
-#   python api/pick_canary_users.py --percent 10 --write
-# Có danh sách thì CHỈ các user này vào canary, canary_percent và canary_salt bị bỏ qua. [] = dùng cách băm theo canary_percent.
-canary_users = []

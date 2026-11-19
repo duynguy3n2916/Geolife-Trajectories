@@ -91,23 +91,6 @@ Xem trạng thái alarm: console CloudWatch → Alarms, hoặc `aws cloudwatch d
 - Response có header `X-Canary: true/false` (cả trên 404 `user_not_found`). Truyền `?model_version=` thì bỏ qua canary.
 - API Gateway gọi thẳng function (không có alias). Đổi các biến trên chỉ đổi biến môi trường của Lambda, cập nhật trong vài giây.
 
-**Chọn đúng N% bằng danh sách (`canary_users`).** Cách băm ở trên cho số user lệch (10% ra 19 user). Muốn đúng N% thì
-cho script chọn ngẫu nhiên rồi ghi danh sách vào tfvars:
-
-```powershell
-python api/pick_canary_users.py --percent 10 --write
-```
-
-- Script liệt kê user có file `results/dbscan-v2/<user>.json` trên S3 (bỏ user 404), trộn bằng seed = tên model, lấy
-  `ceil(N% × số user)` user đầu, ghi dòng `canary_users = [...]` vào `canary.auto.tfvars`. Sau đó `terraform apply`.
-- Quy tắc ưu tiên: `canary_users` có giá trị thì **chỉ** các user đó vào canary, `canary_percent` và `canary_salt` bị bỏ qua.
-  `canary_users = []` thì dùng cách băm theo `canary_percent`. Cả hai cách đều cần `canary_model` (và model đó phải có trong registry).
-- Cùng seed: chạy lại ra cùng nhóm, và nhóm 10% nằm trọn trong nhóm 50%. `--seed khac` để rút nhóm khác.
-- Lambda nhận danh sách qua biến môi trường `CANARY_USERS` (cách nhau dấu phẩy). Giới hạn biến môi trường Lambda là 4 KB,
-  cả 182 user chỉ khoảng 730 byte nên đủ; `canary.tf` chặn danh sách dài quá 2000 ký tự.
-- `--percent 0 --write` xoá danh sách (về cách băm). `canary_check.ps1` in thêm dòng so nhóm canary thật với danh sách trong tfvars.
-- Rollback vẫn là `canary_model = ""` (tắt cả hai cách).
-
 Đo sau mỗi bước (từ thư mục `Home_Office`, cần tài khoản admin): `.\api\canary_check.ps1`.
 Script gọi cả 182 user 2 vòng, in số user mỗi model, danh sách user canary, số user đổi model giữa 2 vòng (phải là 0)
 và danh sách user bị lỗi.
@@ -124,11 +107,10 @@ cũ làm nền: `python deploy/registry/register_models.py set-default heuristic
 | 4. Rollback | heuristic-v1 | `""` | `0` | `false` | mọi user về `heuristic-v1`, 0 lỗi |
 | 5. Thăng cấp | **dbscan-v2** (bấm Approve trong Studio, heuristic-v1 về Pending) | `""` | `0` | `false` | sau tối đa khoảng 1 phút mọi user nhận `dbscan-v2`, không cần apply |
 
-Dùng danh sách thay cho băm: ở bước 1 và 2 chạy `python api/pick_canary_users.py --percent 10 --write` (rồi `--percent 50`),
-số user canary là đúng 10%, 50% số user có kết quả. Số user (19, 85) trong bảng là đếm thật với cách băm, muối mặc định `dbscan-v2`, lệch khỏi đúng 10%, 50% vì 182 user còn ít;
+Số user (19, 85) là đếm thật với muối mặc định `dbscan-v2`, lệch khỏi đúng 10%, 50% vì 182 user còn ít;
 con số đang bật in trong `terraform output lookup_model_canary`.
 `canary_simulate_error` chỉ có tác dụng khi canary đang bật, và chỉ để demo: nó giả lập "model mới hỏng" để thấy
-lỗi chỉ trúng nhóm canary, alarm kêu, rồi rollback bằng `canary_model = ""`.
+lỗi chỉ trúng nhóm canary, alarm kêu, rồi rollback bằng `canary_percent = 0`.
 Rollback ở đây là tắt canary (Lambda cập nhật cấu hình, khoảng vài giây đến 1 phút cho `apply`), không phải lùi về bản cũ.
 Blue-green tương ứng: nhảy thẳng từ bước 0 sang bước 5 (đổi model nền một lần cho mọi người dùng).
 Thăng cấp bằng lệnh thay cho bấm Studio: `python deploy/registry/register_models.py set-default dbscan-v2`.

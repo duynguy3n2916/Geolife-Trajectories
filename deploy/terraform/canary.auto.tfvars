@@ -12,3 +12,6 @@ canary_weight         = 0
 #     Khi bật (B) thì giữ stable_version = "" ở trên.
 canary_model   = ""
 canary_percent = 0
+# Muối băm cùng user_id. "" = dùng tên canary_model (mỗi model mới rút một nhóm user khác).
+# Chỉ đặt khi muốn chạy lại cùng model với một nhóm khác, ví dụ canary_salt = "dbscan-v2-dot2".
+canary_salt    = ""

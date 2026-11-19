@@ -19,6 +19,7 @@
 #       user có số < canary_percent luôn nhận canary_model, những user còn lại nhận model mặc định (registry).
 #       Cùng một user luôn thấy cùng một model; tăng 10 -> 50 -> 100 thì user cũ vẫn ở nhóm canary.
 #       Response có header X-Canary: true/false. Dùng khi đổi model (heuristic-v1 <-> dbscan-v2).
+#       Băm sha256("<muối>:<user_id>"), muối = canary_salt (mặc định = canary_model): mỗi đợt canary rút một nhóm khác.
 #   Khi chạy (B) thì để stable_version = "" (alias 100% bản mới nhất), tránh trộn 2 kiểu cùng lúc.
 # Kịch bản từng bước: deploy/terraform/README.md, mục Canary.
 
@@ -73,6 +74,12 @@ variable "canary_percent" {
   }
 }
 
+variable "canary_salt" {
+  description = "Canary model theo user: muối băm cùng user_id (\"\" = dùng tên canary_model). Đổi muối = rút nhóm user khác."
+  type        = string
+  default     = ""
+}
+
 locals {
   # (B) Canary model theo user bật khi có model và phần trăm > 0 (main.tf đưa vào biến môi trường Lambda).
   model_canary_on = var.canary_model != "" && var.canary_percent > 0
@@ -119,5 +126,5 @@ output "lookup_live_routing" {
 
 output "lookup_model_canary" {
   description = "Canary model theo user đang bật thế nào."
-  value       = local.model_canary_on ? "${var.canary_percent}% user (theo sha256 của user_id) nhận ${var.canary_model}, còn lại nhận model mặc định" : "tắt (mọi user nhận model mặc định)"
+  value       = local.model_canary_on ? "${var.canary_percent}% user (sha256 của \"${var.canary_salt != "" ? var.canary_salt : var.canary_model}:user_id\") nhận ${var.canary_model}, còn lại nhận model mặc định" : "tắt (mọi user nhận model mặc định)"
 }

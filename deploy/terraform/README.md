@@ -95,8 +95,11 @@ Canary bằng alias ở trên bốc thăm **theo từng request**: cùng một n
 lúc ra `dbscan-v2`, nên gợi ý nhà/công ty trên app nhảy qua lại. Cách đó hợp với đổi **code**, không hợp với đổi **model**.
 Canary model theo user sửa chỗ này:
 
-- `api/handler.py` băm `user_id` bằng sha256, lấy 8 ký tự hex đầu, chia lấy dư 100, ra số 0..99 cố định cho mỗi user
-  (không dùng `hash()` của Python vì giá trị đổi mỗi lần Lambda khởi động).
+- `api/handler.py` băm chuỗi `"<muối>:<user_id>"` bằng sha256, lấy 8 ký tự hex đầu, chia lấy dư 100, ra số 0..99 cố định
+  cho mỗi user (không dùng `hash()` của Python vì giá trị đổi mỗi lần Lambda khởi động).
+- Muối = `canary_salt`, để `""` thì dùng tên `canary_model`. Giống cách LaunchDarkly, Unleash băm `tên flag + user`: mỗi đợt
+  canary rút một nhóm khác, không user nào lần nào cũng vào canary trước. Trong một đợt (cùng muối) nhóm vẫn cố định.
+  Đổi muối giữa đợt thì nhóm bị rút lại, nên chỉ đổi khi bắt đầu đợt mới.
 - User có số `< canary_percent` nhận `canary_model`; user còn lại nhận model mặc định (registry, hoặc `lookup_pinned_version`).
 - Cùng một user luôn nhận cùng một model. Tăng 10 → 50 → 100 thì user đã ở nhóm canary vẫn ở đó, chỉ thêm user mới.
 - Response có header `X-Canary: true/false` (cả trên 404 `user_not_found`). Truyền `?model_version=` thì bỏ qua canary.
@@ -111,12 +114,12 @@ Registry đang duyệt `dbscan-v2`, nên để demo "đưa model mới ra dần"
 | Bước | `lookup_pinned_version` | `canary_model` | `canary_percent` | Kết quả mong đợi (`canary_check.ps1 -AllUsers`) |
 |---|---|---|---|---|
 | 0. Mọi user dùng model cũ | `"heuristic-v1"` | `""` | `0` | 182 user `heuristic-v1`, `X-Canary=false` |
-| 1. Canary 10% user | `"heuristic-v1"` | `"dbscan-v2"` | `10` | khoảng 18 user `dbscan-v2` (`X-Canary=true`), 0 user đổi model giữa 2 vòng |
-| 2. Canary 50% user | `"heuristic-v1"` | `"dbscan-v2"` | `50` | khoảng 91 user; mọi user canary ở bước 1 vẫn có trong danh sách |
+| 1. Canary 10% user | `"heuristic-v1"` | `"dbscan-v2"` | `10` | 19 user `dbscan-v2` (`X-Canary=true`), 0 user đổi model giữa 2 vòng |
+| 2. Canary 50% user | `"heuristic-v1"` | `"dbscan-v2"` | `50` | 85 user; mọi user canary ở bước 1 vẫn có trong danh sách |
 | 3. Chuyển hẳn | `""` | `""` | `0` | registry đã duyệt `dbscan-v2` nên mọi user nhận `dbscan-v2` |
 | Rollback (bất kỳ lúc nào) | giữ nguyên | `""` | `0` | mọi user về model mặc định |
 
-Số user là xấp xỉ (băm không chia đều tuyệt đối); con số thật in trong `terraform output lookup_model_canary` và trong script.
+Số user (19, 85) là đếm thật với muối mặc định `dbscan-v2`, lệch khỏi đúng 10%, 50% vì 182 user còn ít; con số thật in trong `terraform output lookup_model_canary` và trong script.
 Mỗi bước đặt `stable_version = ""`, `canary_weight = 0`, `lookup_simulate_error = false`.
 Đừng trộn 2 kiểu cùng lúc: đang chia alias theo request mà bật thêm canary theo user thì rất khó đọc kết quả.
 Tóm tắt khi trình bày: **canary code theo request (alias), canary model theo người dùng (handler)**.

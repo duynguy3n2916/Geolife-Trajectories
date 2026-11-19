@@ -49,7 +49,7 @@ def load_handler(monkeypatch, auth_mode, **env):
     monkeypatch.setenv("BUCKET", "test-bucket")
     monkeypatch.setenv("AUTH_MODE", auth_mode)
     monkeypatch.setenv("PINNED_VERSION", "dbscan-v2")
-    for k in ("CANARY_MODEL", "CANARY_PERCENT"):
+    for k in ("CANARY_MODEL", "CANARY_PERCENT", "CANARY_SALT"):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -169,7 +169,7 @@ def test_bucket_deterministic(h):
     b = [h.user_bucket(u) for u in USERS]
     assert b == [h.user_bucket(u) for u in USERS]
     assert all(0 <= x < 100 for x in b)
-    assert h.user_bucket("153") == int(__import__("hashlib").sha256(b"153").hexdigest()[:8], 16) % 100
+    assert h.user_bucket("153", "dbscan-v2") == int(__import__("hashlib").sha256(b"dbscan-v2:153").hexdigest()[:8], 16) % 100
 
 
 def test_no_canary_by_default(h):
@@ -184,6 +184,21 @@ def test_canary_sticky_same_user(monkeypatch):
     seen = {(call_full(h, event(u, ADMIN))[1]["model_version"], call_full(h, event(u, ADMIN))[2]["X-Canary"])
             for _ in range(20)}
     assert seen == {("heuristic-v1", "true")}
+
+
+def test_salt_defaults_to_canary_model(monkeypatch):
+    h = canary_handler(monkeypatch, 10)
+    assert h.CANARY_SALT == "heuristic-v1"
+    h = load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10", CANARY_SALT="dot-2")
+    assert h.CANARY_SALT == "dot-2"
+
+
+def test_different_salt_different_group(monkeypatch):
+    """Muối khác (đợt canary khác) rút nhóm user khác; cùng muối thì nhóm giữ nguyên."""
+    a = canary_set(load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10", CANARY_SALT="dot-1"))
+    b = canary_set(load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10", CANARY_SALT="dot-2"))
+    a2 = canary_set(load_handler(monkeypatch, "jwt", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="10", CANARY_SALT="dot-1"))
+    assert a == a2 and a != b
 
 
 def test_canary_percent_0_and_100(monkeypatch):

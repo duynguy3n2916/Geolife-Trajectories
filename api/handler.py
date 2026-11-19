@@ -16,6 +16,8 @@ Biến môi trường:
     SIMULATE_ERROR = 1: route tra cứu cố ý ném lỗi (chỉ để demo rollback canary; /health vẫn chạy).
     CANARY_MODEL + CANARY_PERCENT: canary model CỐ ĐỊNH THEO NGƯỜI DÙNG. Băm user_id (sha256) ra một số 0..99;
         số < CANARY_PERCENT thì người dùng đó luôn nhận CANARY_MODEL, còn lại nhận version mặc định.
+    CANARY_SALT: "muối" băm cùng user_id (sha256("<muối>:<user_id>")), mặc định = CANARY_MODEL. Mỗi đợt canary (muối khác)
+        rút một nhóm người dùng khác, nên không ai lần nào cũng vào canary trước; trong một đợt thì nhóm vẫn cố định.
         Cùng người dùng luôn ra cùng số, nên gọi bao nhiêu lần cũng thấy cùng một model; tăng phần trăm thì nhóm cũ
         vẫn nằm trong nhóm canary. Khác alias "live" (chia ngẫu nhiên theo request, dùng cho canary code).
         Người gọi truyền ?model_version=... thì bỏ qua canary.
@@ -49,6 +51,7 @@ except ValueError:
 if CANARY_MODEL and CANARY_MODEL not in VERSIONS:  # cấu hình sai: tắt canary thay vì trả lỗi cho người dùng
     print(json.dumps({"event": "canary_model_ignored", "canary_model": CANARY_MODEL}))
     CANARY_MODEL = None
+CANARY_SALT = os.environ.get("CANARY_SALT") or CANARY_MODEL or ""
 _DEFAULT = {"v": None, "t": 0.0}
 _FN_VERSION = {"v": "$LATEST"}                           # số version Lambda của lần gọi hiện tại
 
@@ -90,9 +93,13 @@ def default_version() -> str:
     return _DEFAULT["v"]
 
 
-def user_bucket(user: str) -> int:
-    """Số cố định 0..99 của một người dùng. Dùng sha256, không dùng hash() của Python (hash() đổi mỗi lần khởi động)."""
-    return int(hashlib.sha256(user.encode("utf-8")).hexdigest()[:8], 16) % 100
+def user_bucket(user: str, salt: str | None = None) -> int:
+    """Số cố định 0..99 của một người dùng trong một đợt canary: sha256("<muối>:<user_id>").
+
+    Dùng sha256, không dùng hash() của Python (hash() đổi mỗi lần khởi động). Muối mặc định CANARY_SALT.
+    """
+    key = f"{CANARY_SALT if salt is None else salt}:{user}"
+    return int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:8], 16) % 100
 
 
 def choose_version(user: str, requested: str | None) -> tuple[str, bool]:

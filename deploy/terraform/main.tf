@@ -199,6 +199,7 @@ resource "aws_lambda_function" "lookup" {
       var.lookup_simulate_error ? { SIMULATE_ERROR = "1" } : {},
       # Canary model theo user (canary.tf): chỉ thêm biến khi bật, để mặc định không sinh bản Lambda mới.
       local.model_canary_on ? { CANARY_MODEL = var.canary_model, CANARY_PERCENT = tostring(var.canary_percent) } : {},
+      local.model_canary_on && var.canary_salt != "" ? { CANARY_SALT = var.canary_salt } : {},
     )
   }
 

@@ -113,6 +113,8 @@ con số đang bật in trong `terraform output lookup_model_canary`.
 lỗi chỉ trúng nhóm canary, alarm kêu, rồi rollback bằng `canary_percent = 0`.
 Rollback ở đây là tắt canary (Lambda cập nhật cấu hình, khoảng vài giây đến 1 phút cho `apply`), không phải lùi về bản cũ.
 Blue-green tương ứng: nhảy thẳng từ bước 0 sang bước 5 (đổi model nền một lần cho mọi người dùng).
+Quên tắt canary sau khi Approve cũng không sao: `canary_model` trùng model nền thì Lambda coi như canary tắt
+(mọi user nhận model đó, `X-Canary=false`, `canary_simulate_error` hết tác dụng). Tắt canary trong tfvars chỉ để dọn cho gọn.
 Thăng cấp bằng lệnh thay cho bấm Studio: `python deploy/registry/register_models.py set-default dbscan-v2`.
 Trước 19/11/2026 canary làm bằng Lambda alias `live` chia traffic theo request (đã bỏ vì cùng user lúc thấy model này lúc
 model kia); xem lại trong lịch sử git nếu cần.

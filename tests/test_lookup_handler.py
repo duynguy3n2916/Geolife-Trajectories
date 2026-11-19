@@ -310,3 +310,14 @@ def test_default_from_registry_when_not_pinned(monkeypatch):
     monkeypatch.setattr(h, "PINNED_VERSION", None)
     code, body = call(h, event("153", ADMIN))
     assert code == 200 and body["model_version"] == "heuristic-v1"
+
+
+def test_canary_off_when_canary_model_is_base(monkeypatch):
+    """Canary model đã được Approve thành model nền: mọi user nhận nó, X-Canary=false, giả lập lỗi không còn tác dụng."""
+    monkeypatch.delenv("PINNED_VERSION", raising=False)
+    h = load_handler(monkeypatch, "jwt", default_doc={"default_model_version": "heuristic-v1",
+                                                      "registered": ["dbscan-v2", "heuristic-v1"]},
+                     PINNED_VERSION="", CANARY_MODEL="heuristic-v1", CANARY_PERCENT="100", CANARY_SIMULATE_ERROR="1")
+    for u in USERS[:20]:
+        code, body, hd = call_full(h, event(u, ADMIN))
+        assert code == 200 and body["model_version"] == "heuristic-v1" and hd["X-Canary"] == "false"

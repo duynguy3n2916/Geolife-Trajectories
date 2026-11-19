@@ -23,7 +23,8 @@ Biến môi trường:
         vẫn nằm trong nhóm canary. Người gọi truyền ?model_version=... thì bỏ qua canary.
         CANARY_MODEL = bản ỨNG VIÊN và phải có trong registry: nếu _default.json có danh sách "registered" mà không chứa
         CANARY_MODEL thì tắt canary (log canary_model_not_registered). File thiếu danh sách hoặc đọc S3 lỗi thì không chặn,
-        để API không lỗi theo registry.
+        để API không lỗi theo registry. CANARY_MODEL trùng model nền (vừa được Approve trong registry) thì cũng coi như
+        tắt canary: thăng cấp chỉ cần bấm Approve, mọi người nhận model đó với X-Canary=false, kể cả khi quên tắt canary.
     CANARY_SIMULATE_ERROR = 1: người dùng thuộc nhóm canary bị lỗi 500 (giả lập model mới hỏng, chỉ để demo
         alarm + rollback); người dùng khác và /health vẫn chạy bình thường.
 Response của route tra cứu (200, và 404 user_not_found) có X-Model-Version và X-Canary (true / false).
@@ -104,12 +105,14 @@ def default_version() -> str:
 
 
 def canary_model() -> str | None:
-    """CANARY_MODEL nếu được phép chạy: có cấu hình và (registry không có danh sách, hoặc có trong danh sách)."""
+    """CANARY_MODEL nếu được phép chạy: có cấu hình, có trong registry (hoặc registry không có danh sách), khác model nền."""
     if not CANARY_MODEL:
         return None
     reg = _registry_state()["registered"]
     if reg is not None and CANARY_MODEL not in reg:
         print(json.dumps({"event": "canary_model_not_registered", "canary_model": CANARY_MODEL, "registered": reg}))
+        return None
+    if CANARY_MODEL == default_version():  # đã được duyệt làm model nền: không còn gì để thử
         return None
     return CANARY_MODEL
 

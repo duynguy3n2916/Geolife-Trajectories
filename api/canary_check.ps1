@@ -7,6 +7,7 @@
 # Đọc địa chỉ API trong api\api_url.txt. Có đăng nhập: lấy token tài khoản admin một lần (api\auth.ps1), vì gọi user
 # của người khác; hỏi mật khẩu demo nếu chưa đặt $env:HO_DEMO_PASSWORD. Token sống 60 phút, đủ cho một lần chạy.
 param([switch]$NoAuth, [string]$Email = "admin@example.com", [int]$Users = 182)
+$ProgressPreference = "SilentlyContinue"   # PowerShell 5.1: thanh tiến trình của Invoke-WebRequest làm mỗi lời gọi chậm hẳn
 . "$PSScriptRoot\auth.ps1"
 $headers = @{}
 if (-not $NoAuth) { $headers["Authorization"] = "Bearer " + (Get-IdToken $Email (Read-DemoPassword)) }
@@ -39,7 +40,8 @@ $ids = 0..($Users - 1) | ForEach-Object { "{0:D3}" -f $_ }
 $round = @{}
 foreach ($k in 1, 2) {
     Write-Host "Vòng ${k}: gọi $($ids.Count) user..."
-    $round[$k] = @($ids | ForEach-Object { Invoke-One $_ })
+    $n = 0
+    $round[$k] = @($ids | ForEach-Object { $n++; if ($n % 20 -eq 0) { Write-Host "  $n/$($ids.Count)" }; Invoke-One $_ })
 }
 $r1 = $round[1]; $r2 = $round[2]
 $ok = @($r1 | Where-Object { $_.Status -in 200, 404 })

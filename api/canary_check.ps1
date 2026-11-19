@@ -1,12 +1,13 @@
-﻿# Demo canary model theo người dùng (deploy/terraform/canary.tf): gọi cả 182 user (000..181) 2 vòng, đếm bao nhiêu user
-# nhận mỗi model (header X-Model-Version, X-Canary), và kiểm tra mỗi user ở vòng 2 có giữ nguyên model không (phải là 0 user đổi).
+﻿# Demo canary model theo người dùng (deploy/terraform/canary.tf): gọi cả 182 user (000..181), đếm bao nhiêu user
+# nhận mỗi model (header X-Model-Version, X-Canary), với -Twice gọi thêm vòng 2 để kiểm mỗi user giữ nguyên model (phải là 0 user đổi).
 # Chạy lại sau mỗi lần đổi canary_percent. Khi bật canary_simulate_error: user canary trả 500, script liệt kê các user lỗi.
 # Cách chạy (từ thư mục Home_Office):
-#   .\api\canary_check.ps1
+#   .\api\canary_check.ps1          1 vòng: đếm user theo model
+#   .\api\canary_check.ps1 -Twice   2 vòng: thêm kiểm tra mỗi user giữ nguyên model
 #   .\api\canary_check.ps1 -NoAuth   khi đã tắt đăng nhập (auth_enabled = false)
 # Đọc địa chỉ API trong api\api_url.txt. Có đăng nhập: lấy token tài khoản admin một lần (api\auth.ps1), vì gọi user
 # của người khác; hỏi mật khẩu demo nếu chưa đặt $env:HO_DEMO_PASSWORD. Token sống 60 phút, đủ cho một lần chạy.
-param([switch]$NoAuth, [string]$Email = "admin@example.com", [int]$Users = 182)
+param([switch]$NoAuth, [switch]$Twice, [string]$Email = "admin@example.com", [int]$Users = 182)
 $ProgressPreference = "SilentlyContinue"   # PowerShell 5.1: thanh tiến trình của Invoke-WebRequest làm mỗi lời gọi chậm hẳn
 . "$PSScriptRoot\auth.ps1"
 $headers = @{}
@@ -38,12 +39,13 @@ function Invoke-One([string]$u) {
 
 $ids = 0..($Users - 1) | ForEach-Object { "{0:D3}" -f $_ }
 $round = @{}
-foreach ($k in 1, 2) {
+$rounds = @(if ($Twice) { 1, 2 } else { 1 })
+foreach ($k in $rounds) {
     Write-Host "Vòng ${k}: gọi $($ids.Count) user..."
     $n = 0
     $round[$k] = @($ids | ForEach-Object { $n++; if ($n % 20 -eq 0) { Write-Host "  $n/$($ids.Count)" }; Invoke-One $_ })
 }
-$r1 = $round[1]; $r2 = $round[2]
+$r1 = $round[1]; $r2 = if ($Twice) { $round[2] } else { $r1 }
 $ok = @($r1 | Where-Object { $_.Status -in 200, 404 })
 Write-Host ""
 Write-Host "Vòng 1, theo model (200 = có kết quả, 404 = user không có nhà/công ty):" -ForegroundColor Cyan
@@ -57,11 +59,13 @@ $changed = @(for ($i = 0; $i -lt $ids.Count; $i++) {
 })
 $canaryUsers = @($r1 | Where-Object Canary -eq "true" | Select-Object -ExpandProperty User)
 Write-Host ("User canary ({0}): {1}" -f $canaryUsers.Count, ($canaryUsers -join " "))
-Write-Host ("Đổi model giữa vòng 1 và vòng 2: {0} user {1}" -f $changed.Count, ($changed -join " ")) `
-    -ForegroundColor $(if ($changed.Count) { "Red" } else { "Green" })
-$fail = @(($r1 + $r2) | Where-Object { $_.Status -notin 200, 404 })
+if ($Twice) {
+    Write-Host ("Đổi model giữa vòng 1 và vòng 2: {0} user {1}" -f $changed.Count, ($changed -join " ")) `
+        -ForegroundColor $(if ($changed.Count) { "Red" } else { "Green" })
+}
+$fail = @($(if ($Twice) { $r1 + $r2 } else { $r1 }) | Where-Object { $_.Status -notin 200, 404 })
 $failUsers = @($fail | Select-Object -ExpandProperty User -Unique)
 $codes = ($fail | Group-Object Status | ForEach-Object { "$($_.Name)×$($_.Count)" }) -join ", "
-Write-Host ("Lỗi (khác 200/404): {0}/{1} {2}" -f $fail.Count, (2 * $ids.Count), $codes) `
+Write-Host ("Lỗi (khác 200/404): {0}/{1} {2}" -f $fail.Count, ($rounds.Count * $ids.Count), $codes) `
     -ForegroundColor $(if ($fail.Count) { "Red" } else { "Green" })
 if ($failUsers.Count) { Write-Host ("User bị lỗi ({0}): {1}" -f $failUsers.Count, ($failUsers -join " ")) -ForegroundColor Red }

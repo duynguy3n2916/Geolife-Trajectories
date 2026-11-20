@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Home/Office Inference API
-  version: 1.0.0-cp2
+  version: 1.2.0-cp2
   description: |
     Gợi ý **home** và **office** của một người dùng cho thanh tìm kiếm của app đặt xe.
 
@@ -26,13 +26,22 @@ info:
     **Version model.** Có `heuristic-v1` (gom cụm tham lam 200 m) và `dbscan-v2` (DBSCAN). Version mặc định là bản
     đang được duyệt trong model registry. Có thể chọn bằng `model_version`. Response và header `X-Model-Version`
     ghi version đã dùng.
+    Khi đang chạy **canary model theo người dùng**, một phần người dùng (chọn cố định theo `user_id`, băm sha256)
+    nhận version model mới thay cho version mặc định; cùng một người dùng luôn nhận cùng một version.
+    Header `X-Canary: true` cho biết người dùng này đang ở nhóm canary. Truyền `model_version` thì bỏ qua canary.
 
-    **Đăng nhập (OAuth 2.0).** Người dùng đăng nhập bằng Google. Amazon Cognito (User Pool liên kết với Google) cấp
-    access token dạng JWT; app gửi `Authorization: Bearer <token>`. API Gateway kiểm tra chữ ký và hạn của token
-    trước khi gọi Lambda. Lambda lấy claim `sub` từ token, tra bảng ánh xạ `sub` sang `user_id`, rồi so với `{user_id}`
-    trên đường dẫn: không khớp thì trả 403 `forbidden`, token sai hoặc hết hạn thì trả 401 `unauthorized`.
-    Mã `user_id` trong bản demo là mã GeoLife, nên bảng ánh xạ do dự án tự tạo cho vài tài khoản thử, không có đăng ký
-    người dùng thật. `GET /health` không cần đăng nhập.
+    **Đăng nhập (Amazon Cognito, đang bật).** Tài khoản nằm trong Cognito User Pool `home-office-users`, đăng nhập bằng
+    email + mật khẩu (`InitiateAuth`, luồng `USER_PASSWORD_AUTH`, app client không có secret). Cognito trả ID token
+    dạng JWT, sống 60 phút; app gửi `Authorization: Bearer <ID token>`.
+    1. API Gateway (JWT authorizer) kiểm chữ ký, hạn, issuer và audience (= app client id) trước khi gọi Lambda.
+       Thiếu token, token sai hoặc hết hạn: 401, body `{"message": "Unauthorized"}` do API Gateway trả.
+    2. Lambda đọc claim `custom:geolife_id` (mã user GeoLife mà tài khoản được xem) và so với `{user_id}` trên đường dẫn.
+       Khác nhau: 403 `forbidden`. Tài khoản trong nhóm `admin` (claim `cognito:groups`) xem được mọi `user_id`.
+       Kiểm quyền xảy ra trước khi đọc kết quả, nên người dùng thường không dò được ai có hay không có kết quả (404).
+    Phải gửi **ID token**, không phải access token: chỉ ID token có claim `custom:geolife_id`.
+    Mã `user_id` trong bản demo là mã GeoLife, nên tài khoản do admin tạo (không cho tự đăng ký); người dùng không tự đổi
+    được `custom:geolife_id`. Tài khoản demo: `userNNN@example.com` cho mỗi user GeoLife (ví dụ `user002@example.com` xem user 002),
+    `admin@example.com` (nhóm admin). `GET /health` không cần đăng nhập.
 
     **Quyền riêng tư.** Vị trí nhà và nơi làm là dữ liệu nhạy cảm. Mọi endpoint trừ `/health` cần token đăng nhập,
     chỉ phục vụ qua HTTPS, không ghi tọa độ vào log. Tọa độ trả về làm tròn 4 chữ số thập phân (khoảng 11 m).
@@ -42,8 +51,9 @@ info:
     **Triển khai trên AWS (CP2).** API Gateway HTTP API (2 route, giới hạn 20 request/giây, dồn tối đa 50) gọi
     Lambda tra cứu; kết quả tính sẵn nằm trên S3, mỗi version một thư mục. Hạ tầng viết bằng Terraform (`deploy/terraform`).
     Đã tính cho 182 user; 166 user có kết quả, 16 user không có stay hoặc không đủ đêm / ngày làm việc nên trả 404.
-    **Đăng nhập hiện đang tắt** (`AUTH_MODE=none`, API Gateway chưa gắn bộ kiểm tra JWT): mọi endpoint gọi được
-    không cần token, nên 401 và 403 chưa xảy ra. Thiết kế đăng nhập bên dưới là phần dự kiến.
+
+    Thay đổi so với 1.0.0-cp2: bật đăng nhập Cognito (email + mật khẩu thay cho Google), token là ID token,
+    quyền theo claim `custom:geolife_id` và nhóm `admin` thay cho bảng ánh xạ `sub`; `BearerAuth` đổi sang `http` / `bearer`.
 
     Thay đổi so với 0.4.0-cp2-draft: điền địa chỉ AWS thật, bỏ server cục bộ (bản FastAPI đã chuyển vào `archive/`),
     ghi rõ đăng nhập đang tắt, 404 cho người dùng không tìm ra home / office, 404 `not_found` cho đường dẫn lạ.
@@ -105,6 +115,8 @@ paths:
           headers:
             X-Model-Version:
               $ref: '#/components/headers/XModelVersion'
+            X-Canary:
+              $ref: '#/components/headers/XCanary'
           content:
             application/json:
               schema:
@@ -137,21 +149,24 @@ paths:
 components:
   securitySchemes:
     BearerAuth:
-      type: oauth2
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: |
-        Đăng nhập Google qua Amazon Cognito (authorization code). Gửi access token trong header
-        `Authorization: Bearer <token>`. Địa chỉ dưới đây là chỗ giữ chỗ, điền khi tạo User Pool.
-      flows:
-        authorizationCode:
-          authorizationUrl: https://auth.example.com/oauth2/authorize
-          tokenUrl: https://auth.example.com/oauth2/token
-          scopes:
-            openid: Định danh người dùng
-            email: Email của tài khoản Google
+        ID token của Amazon Cognito (User Pool `home-office-users`, vùng ap-southeast-1). Lấy token:
+        `POST https://cognito-idp.ap-southeast-1.amazonaws.com/` với header
+        `X-Amz-Target: AWSCognitoIdentityProviderService.InitiateAuth`, `Content-Type: application/x-amz-json-1.1`,
+        body `{"AuthFlow": "USER_PASSWORD_AUTH", "ClientId": "<app client id>", "AuthParameters": {"USERNAME": "<email>", "PASSWORD": "<mật khẩu>"}}`,
+        rồi lấy `AuthenticationResult.IdToken`. Trên Windows: `.\api\get_token.ps1 user153@example.com`.
   headers:
     XModelVersion:
       description: Version model đã dùng để tính kết quả
       schema: {type: string}
+    XCanary:
+      description: |
+        `true` nếu người dùng này đang ở nhóm canary model (nhận version model mới), `false` nếu không.
+        Cố định theo `user_id` trong suốt một đợt canary. Cũng có trên 404 `user_not_found`.
+      schema: {type: string, enum: ['true', 'false']}
   parameters:
     UserId:
       name: user_id
@@ -174,13 +189,19 @@ components:
         example: dbscan-v2
   responses:
     Unauthorized:
-      description: Thiếu token, token sai chữ ký hoặc hết hạn (`unauthorized`)
+      description: |
+        Thiếu token, token sai chữ ký hoặc hết hạn. API Gateway trả trước khi gọi Lambda, nên body là
+        `{"message": "Unauthorized"}` chứ không theo schema `Error`.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            type: object
+            properties:
+              message:
+                type: string
+                example: Unauthorized
     Forbidden:
-      description: Token hợp lệ nhưng `user_id` trên đường dẫn không phải của người đang đăng nhập, hoặc tài khoản chưa được ánh xạ sang `user_id` (`forbidden`)
+      description: Token hợp lệ nhưng `user_id` trên đường dẫn khác `custom:geolife_id` của tài khoản, và tài khoản không trong nhóm `admin` (`forbidden`)
       content:
         application/json:
           schema:

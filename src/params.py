@@ -10,7 +10,7 @@ Dùng:
     python -m src.params write [--out params]      # ghi params/<version>.json cho mọi version trong models.MODELS
     python -m src.params check [--dir params]      # file khớp params trong code và khớp giá trị mặc định của các hàm
 
-Trong Lambda batch (batch/handler.py):
+Trong Lambda batch (batch/batch_handler.py):
     p = params.load("s3://<bucket>/models/dbscan-v2/params.json")
     stays, places, res = params.run_pipeline(clean, user, p)
 

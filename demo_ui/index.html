@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ride demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --brand:#0fa5a0; --brand-dark:#0b7f7b; --brand-soft:#e2f6f5;
+  --bg:#eef1f0; --surface:#ffffff; --surface-2:#f5f7f6; --text:#14201b; --muted:#66746e; --line:#e1e6e3;
+  --warn:#b7791f; --warn-soft:#fdf3e1; --bad:#c0392b; --bad-soft:#fbe9e7;
+  --radius:16px; --shadow:0 10px 40px rgba(10,30,20,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --brand:#2cc5bf; --brand-dark:#1fa7a2; --brand-soft:#103735;
+    --bg:#0c1210; --surface:#141c19; --surface-2:#1b2521; --text:#e6eeea; --muted:#94a39c; --line:#26332e;
+    --warn:#e3b04b; --warn-soft:#352a14; --bad:#ef7b6e; --bad-soft:#3a1d1a;
+  }
+}
+:root[data-theme="dark"]{
+  --brand:#2cc5bf; --brand-dark:#1fa7a2; --brand-soft:#103735;
+  --bg:#0c1210; --surface:#141c19; --surface-2:#1b2521; --text:#e6eeea; --muted:#94a39c; --line:#26332e;
+  --warn:#e3b04b; --warn-soft:#352a14; --bad:#ef7b6e; --bad-soft:#3a1d1a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.4 "Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:24px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select{font:inherit;color:inherit}
+.phone{width:390px;height:min(844px,100vh - 32px);background:var(--surface);border-radius:36px;box-shadow:var(--shadow);
+  overflow:hidden;position:relative;border:8px solid #111}
+@media (max-width:480px){body{display:block}.phone{width:100%;height:100vh;border:0;border-radius:0}}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--surface);transition:transform .25s ease}
+.screen.hidden{transform:translateX(100%);pointer-events:none}
+#s-home{z-index:1}#s-pick{z-index:2}#s-confirm{z-index:3}.screen{isolation:isolate}
+.scroll{flex:1;overflow-y:auto}
+
+/* trang chủ: ô tìm kiếm trên cùng, 2 thẻ lớn, lưới dịch vụ, banner, thanh điều hướng nổi */
+#homeMap{position:absolute;left:0;right:0;top:0;height:300px;z-index:0;opacity:.45;filter:grayscale(.6);pointer-events:none}
+#homeMap::after{content:"";position:absolute;inset:0;z-index:450;background:linear-gradient(180deg,transparent 30%,var(--surface))}
+.home-scroll{position:absolute;inset:0;z-index:1;overflow-y:auto;padding-bottom:96px}
+.home-top{display:flex;justify-content:space-between;align-items:center;padding:16px 16px 8px;position:relative;z-index:1}
+.hello{font-weight:700;font-size:15px}
+.chip{background:var(--surface);box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:999px;padding:7px 12px;font-size:13px;display:flex;gap:6px;align-items:center;font-weight:600}
+.round{width:46px;height:46px;flex:none;border-radius:50%;background:var(--surface);box-shadow:0 4px 14px rgba(0,0,0,.1);display:grid;place-items:center;font-size:20px;color:var(--brand)}
+.search-row{display:flex;gap:10px;padding:8px 16px 0;position:relative;z-index:1}
+.search{flex:1;background:var(--surface);border-radius:18px;box-shadow:0 4px 18px rgba(0,0,0,.1);border:1px solid var(--line);
+  padding:13px 16px;display:flex;align-items:center;gap:10px;color:var(--muted);text-align:left;font-size:16px}
+.search .grow{flex:1}
+.mag{font-size:22px;color:var(--text);line-height:1}
+.big2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 16px 0;position:relative;z-index:1}
+.bigcard{height:104px;border-radius:18px;padding:14px;text-align:left;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--surface) 40%,var(--brand-soft));border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.bigcard .bt{font-weight:600;font-size:16px;display:block}
+.bigcard .bi{position:absolute;right:10px;bottom:4px;font-size:46px}
+.sec-h{display:flex;justify-content:space-between;align-items:center;padding:22px 16px 10px;font-weight:700;font-size:17px}
+.link{font-size:14px;font-weight:500}
+.services{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:0 16px}
+.svc{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;color:var(--text);text-align:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 4px;min-height:96px}
+.svc .ic{font-size:30px;line-height:1.1}
+.banners{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:20px 16px 0;scrollbar-width:none}
+.banners::-webkit-scrollbar{display:none}
+.banner{flex:0 0 100%;scroll-snap-align:center;border-radius:18px;padding:16px;min-height:136px;position:relative;color:#fff;display:flex;flex-direction:column;gap:4px}
+.banner small{opacity:.85;font-size:12px}.banner b{font-size:19px;line-height:1.2;max-width:70%}.banner span{font-size:12px;opacity:.9;max-width:68%}
+.banner em{position:absolute;right:14px;bottom:12px;font-style:normal;font-size:38px}
+.b1{background:linear-gradient(135deg,#0b4f55,#0fa5a0)}.b2{background:linear-gradient(135deg,#1f3b63,#3f7fc4)}.b3{background:linear-gradient(135deg,#5b2a6e,#c0508c)}
+.dots{display:flex;justify-content:center;gap:6px;padding:10px 0 0}
+.dots i{width:6px;height:6px;border-radius:3px;background:var(--line)}.dots i.on{width:18px;background:var(--brand)}
+.promo2{margin:0 16px;padding:16px;border-radius:16px;background:var(--brand-soft);font-size:14px}
+.pillnav{position:absolute;left:16px;right:16px;bottom:16px;z-index:600;display:flex;justify-content:space-around;align-items:center;
+  height:62px;border-radius:31px;background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(12px);
+  box-shadow:0 8px 28px rgba(0,0,0,.15);border:1px solid var(--line)}
+.pillnav button{width:46px;height:46px;border-radius:50%;font-size:20px;color:var(--muted);display:grid;place-items:center}
+.pillnav button.on{background:var(--brand-soft);color:var(--brand)}
+.cta{margin:12px 16px;background:var(--brand);color:#fff;border-radius:var(--radius);padding:16px;font-weight:700;font-size:17px;width:calc(100% - 32px)}
+.cta:active{background:var(--brand-dark)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--bad);flex:none}
+/* chọn địa điểm */
+.bar{display:flex;align-items:center;gap:8px;padding:14px 12px 8px}
+.back{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:20px}
+.back:hover{background:var(--surface-2)}
+.bar h2{font-size:17px}
+.route{margin:4px 16px 8px;border:1px solid var(--line);border-radius:var(--radius);padding:4px 12px}
+.route label{display:flex;align-items:center;gap:10px;padding:8px 0}
+.route label+label{border-top:1px solid var(--line)}
+.route .dot.from{background:var(--brand)}
+.route input{border:0;outline:0;background:transparent;flex:1;min-width:0}
+.section-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px;font-size:13px;color:var(--muted);font-weight:600}
+.src{font-size:11px;font-weight:600;border-radius:999px;padding:3px 8px;background:var(--brand-soft);color:var(--brand-dark)}
+:root[data-theme="dark"] .src{color:var(--brand)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .src{color:var(--brand)}}
+.src.mock{background:var(--warn-soft);color:var(--warn)}
+.src.err{background:var(--bad-soft);color:var(--bad)}
+.item{display:flex;gap:12px;align-items:center;padding:12px 16px;width:100%;text-align:left}
+.item:hover{background:var(--surface-2)}
+.item[disabled]{cursor:default;opacity:.7}
+.item[disabled]:hover{background:none}
+.pin{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--brand-soft);flex:none}
+.pin.grey{background:var(--surface-2)}
+.item .t{font-weight:600}
+.item .s{font-size:13px;color:var(--muted)}
+.item .grow{flex:1;min-width:0}
+.badge{font-size:12px;font-weight:600;border-radius:8px;padding:3px 8px;white-space:nowrap;background:var(--brand-soft);color:var(--brand-dark)}
+.badge.low{background:var(--warn-soft);color:var(--warn)}
+.flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.flag{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)}
+.skel{height:64px;margin:6px 16px;border-radius:12px;background:linear-gradient(90deg,var(--surface-2),var(--line),var(--surface-2));
+  background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.note{margin:8px 16px;padding:12px;border-radius:12px;background:var(--surface-2);color:var(--muted);font-size:13px}
+.debug-btn{margin:16px;font-size:13px;color:var(--brand);font-weight:600}
+pre.debug{margin:0 16px 16px;padding:12px;border-radius:12px;background:#0d1512;color:#c9e8da;font:12px/1.45 ui-monospace,Consolas,monospace;
+  white-space:pre-wrap;word-break:break-all}
+
+#pickMap{height:38%;min-height:200px;flex:none;background:var(--surface-2);position:relative}
+.route label.active{background:var(--brand-soft);margin:0 -12px;padding:8px 12px}
+.route .hint{font-size:11px;color:var(--muted);white-space:nowrap}
+.route .fld{flex:1;min-width:0;display:flex;flex-direction:column}
+.route .fld input{width:100%}
+.route .coord{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.route .coord:empty{display:none}
+.mk{font-size:22px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.mk.dot-mk{width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.pick-foot{padding:10px 16px 14px;border-top:1px solid var(--line)}
+.pick-foot .cta{margin:0;width:100%}
+.pick-foot .cta[disabled]{opacity:.45;cursor:default}
+.map-tip{position:absolute;left:8px;bottom:8px;z-index:500;background:var(--surface);color:var(--text);font-size:12px;padding:4px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+/* xác nhận */
+#map{flex:1;min-height:200px;background:var(--surface-2)}
+.sheet{background:var(--surface);border-radius:20px 20px 0 0;margin-top:-20px;position:relative;z-index:500;padding:16px;box-shadow:0 -6px 20px rgba(0,0,0,.08)}
+.dest{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.ride{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;width:100%;text-align:left}
+.ride.on{border-color:var(--brand);background:var(--brand-soft)}
+.ride .grow{flex:1}
+.ride b{white-space:nowrap}
+.map-back{position:absolute;top:14px;left:12px;z-index:600;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+
+/* bảng cài đặt */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:900;display:flex;align-items:flex-end}
+.overlay.hidden{display:none}
+.panel{background:var(--surface);width:100%;border-radius:20px 20px 0 0;padding:20px 16px 24px}
+.panel h3{margin-bottom:12px}
+.field{display:block;margin-bottom:12px;font-size:13px;color:var(--muted)}
+.field input,.field select{display:block;width:100%;margin-top:4px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.toast{position:absolute;left:16px;right:16px;bottom:96px;z-index:950;background:#14201b;color:#fff;padding:12px 16px;border-radius:12px;
+  font-size:14px;transition:opacity .2s;opacity:0;pointer-events:none}
+.toast.show{opacity:1}
+.side{max-width:300px;color:var(--muted);font-size:13px}
+.side b{color:var(--text)}
+.side p{margin-bottom:8px}
+@media (max-width:900px){.side{display:none}}
+
+/* ===== làm mới giao diện trang chủ (hiện đại hơn) ===== */
+.phone{border-radius:44px;border:10px solid #0d0f0f;box-shadow:0 30px 80px rgba(10,40,40,.25),inset 0 0 0 1px rgba(255,255,255,.05)}
+#s-home{background:linear-gradient(180deg,#eaf6f5 0,var(--surface) 340px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) #s-home{background:linear-gradient(180deg,#0f2523 0,var(--surface) 340px)}}
+.statusbar{position:absolute;top:0;left:0;right:0;height:34px;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:13px;font-weight:600}
+.statusbar span:last-child{letter-spacing:2px;font-size:11px}
+#homeMap{top:0;height:260px;opacity:.35;filter:grayscale(1) contrast(.9)}
+.home-scroll{padding-top:30px;padding-bottom:110px;scrollbar-width:none}
+.home-scroll::-webkit-scrollbar{display:none}
+.home-top{padding:10px 18px 4px}
+.hello{font-size:14px;font-weight:500;color:var(--muted)}
+.chip{box-shadow:0 2px 12px rgba(15,80,80,.10);border:1px solid var(--line);font-weight:600}
+.search-row{padding:12px 18px 0}
+.search{height:56px;border-radius:20px;border:1px solid rgba(255,255,255,.7);background:color-mix(in srgb,var(--surface) 88%,transparent);
+  backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(15,80,80,.12);font-size:16px;font-weight:500;padding:0 18px}
+.mag{display:grid;color:var(--text)}
+.round{width:56px;height:56px;border-radius:20px;box-shadow:0 10px 30px rgba(15,80,80,.12);border:1px solid var(--line)}
+.big2{gap:14px;padding:18px 18px 0}
+.bigcard{height:128px;border-radius:22px;border:1px solid rgba(15,165,160,.12);padding:16px;
+  background:radial-gradient(120% 120% at 100% 100%,rgba(15,165,160,.28) 0,rgba(15,165,160,.06) 45%,var(--surface) 75%);
+  box-shadow:0 8px 24px rgba(15,80,80,.08);transition:transform .15s}
+.bigcard:active,.svc:active{transform:scale(.97)}
+.bigcard .bt{font-size:17px;font-weight:700}
+.bigcard .bs{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;max-width:58%}
+.bigcard .bi{font-size:56px;right:8px;bottom:0;filter:drop-shadow(0 8px 10px rgba(0,60,60,.25));transform:rotate(-6deg)}
+.sec-h{padding:26px 18px 12px;font-size:18px}
+.link{color:var(--brand);font-weight:600;font-size:13.5px}
+.services{gap:12px;padding:0 18px}
+.svc{border:0;border-radius:20px;background:var(--surface);box-shadow:0 6px 18px rgba(15,80,80,.07);min-height:104px;padding:14px 4px 10px;font-size:12.5px;font-weight:500;gap:10px;transition:transform .15s}
+.svc .ic{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:30px;
+  background:linear-gradient(160deg,var(--brand-soft),transparent);filter:drop-shadow(0 4px 6px rgba(0,60,60,.15))}
+.banners{padding:24px 18px 0;gap:14px}
+.banner{border-radius:24px;min-height:150px;padding:18px;overflow:hidden;box-shadow:0 12px 30px rgba(10,60,60,.18)}
+.banner::before{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.12)}
+.banner::after{content:"";position:absolute;right:30px;bottom:-60px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.08)}
+.banner small{display:inline-block;align-self:flex-start;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:999px;font-weight:600;opacity:1}
+.banner b{font-size:20px;margin-top:4px}
+.banner em{font-size:46px;z-index:1;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25))}
+.b1{background:linear-gradient(125deg,#0a3d44 0,#0b6d6e 55%,#15b3a8 100%)}
+.dots{padding-top:12px}
+.promo2{display:flex;gap:12px;align-items:center;margin:0 18px;padding:16px;border-radius:20px;
+  background:linear-gradient(120deg,var(--brand-soft),var(--surface));border:1px solid rgba(15,165,160,.15)}
+.promo2 .p-ic{font-size:30px}
+.promo2 small{color:var(--muted)}
+.pillnav{left:18px;right:96px;bottom:18px;height:64px;border-radius:32px;border:1px solid rgba(255,255,255,.6);
+  background:color-mix(in srgb,var(--surface) 78%,transparent);backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 12px 32px rgba(10,50,50,.18)}
+.pillnav button{width:50px;height:50px}
+.pillnav button.on{background:linear-gradient(160deg,var(--brand-soft),color-mix(in srgb,var(--brand) 22%,var(--surface)));color:var(--brand-dark);box-shadow:inset 0 0 0 1px rgba(15,165,160,.2)}
+.fab{position:absolute;right:18px;bottom:18px;z-index:600;width:64px;height:64px;border-radius:50%;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  background:linear-gradient(150deg,#22c3b8,var(--brand-dark));box-shadow:0 12px 28px rgba(11,127,123,.4)}
+.fab small{font-size:9.5px;font-weight:600}
+.toast{bottom:100px}
+/* các màn khác: góc bo và bóng đồng bộ */
+.route{border-radius:18px;box-shadow:0 6px 18px rgba(15,80,80,.07)}
+.cta{border-radius:18px;box-shadow:0 10px 24px rgba(11,127,123,.28);background:linear-gradient(150deg,#16b5aa,var(--brand-dark))}
+.cta[disabled]{box-shadow:none}
+.ride{border-radius:16px}
+
+/* ===== khung kiểu iPhone: viền kim loại, Dynamic Island, thanh trạng thái, thanh home ===== */
+body{background:radial-gradient(1200px 700px at 30% 20%,#f6fbfa 0,var(--bg) 60%)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body{background:radial-gradient(1200px 700px at 30% 20%,#13201d 0,var(--bg) 60%)}}
+:root[data-theme="dark"] body{background:radial-gradient(1200px 700px at 30% 20%,#13201d 0,var(--bg) 60%)}
+.device{position:relative;flex:none;padding:5px;border-radius:62px;
+  background:linear-gradient(145deg,#c9ccd0 0,#7d8287 18%,#e3e5e8 34%,#6c7176 52%,#b9bcc0 72%,#5d6166 100%);
+  box-shadow:0 40px 90px rgba(10,40,40,.28),0 12px 24px rgba(0,0,0,.18),inset 0 0 1px rgba(255,255,255,.8)}
+.device::before,.device::after{content:"";position:absolute;width:4px;border-radius:2px;background:linear-gradient(90deg,#5d6166,#a9adb1)}
+.device::before{left:-3px;top:150px;height:58px;box-shadow:0 74px 0 #8b8f94,0 -52px 0 -0px #8b8f94}  /* nút âm lượng + action */
+.device::after{right:-3px;top:200px;height:92px}                                               /* nút nguồn */
+.phone{width:393px;height:min(852px,100vh - 48px);border:11px solid #050506;border-radius:57px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.phone .screen{border-radius:46px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:122px;height:35px;border-radius:20px;background:#000;z-index:1000;pointer-events:none}
+.island::after{content:"";position:absolute;right:22px;top:50%;width:11px;height:11px;margin-top:-5.5px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#2a3a55 0,#0b0f18 60%)}
+.ios-status{position:absolute;top:0;left:0;right:0;height:54px;z-index:999;display:flex;justify-content:space-between;align-items:center;
+  padding:4px 30px 0 44px;pointer-events:none;color:var(--text);font-size:16px;font-weight:600;letter-spacing:-.2px;font-variant-numeric:tabular-nums}
+.ios-status .icons{display:flex;gap:6px;align-items:center}
+.ios-status svg{display:block}
+.home-ind{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:136px;height:5px;border-radius:3px;background:var(--text);opacity:.85;z-index:1000;pointer-events:none}
+/* chừa chỗ cho tai thỏ và thanh home */
+.statusbar{display:none}
+.home-scroll{padding-top:52px}
+#s-pick .bar{padding-top:56px}
+.map-back{top:58px}
+.pick-foot{padding-bottom:28px}
+.sheet{padding-bottom:30px}
+.pillnav{bottom:28px}.fab{bottom:28px}
+.panel{padding-bottom:34px}
+/* chi tiết kiểu iOS */
+.bar h2{font-size:20px;font-weight:700;letter-spacing:-.3px}
+.back{background:var(--surface-2)}
+.route{background:var(--surface-2);border:0;box-shadow:none}
+.route label.active{background:var(--surface);border-radius:12px;margin:0 -8px;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.route label+label{border-top-color:transparent}
+.item{border-radius:14px;margin:0 8px;width:calc(100% - 16px);padding:12px 10px}
+.pin{border-radius:14px}
+.src{padding:4px 10px}
+#pickMap{margin:0 16px;border-radius:20px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.pick-foot{border-top:0;background:color-mix(in srgb,var(--surface) 85%,transparent);backdrop-filter:blur(14px)}
+.sheet{border-radius:28px 28px 0 0}
+.sheet::before{content:"";display:block;width:36px;height:5px;border-radius:3px;background:var(--line);margin:-6px auto 12px}
+.panel{border-radius:28px 28px 0 0}
+.toast{border-radius:16px;backdrop-filter:blur(10px);background:rgba(20,32,27,.88)}
+@media (max-width:480px){
+  .device{padding:0;border-radius:0;background:none;box-shadow:none;width:100%}
+  .device::before,.device::after,.island,.ios-status,.home-ind{display:none}
+  .phone .screen{border-radius:0}
+  .home-scroll{padding-top:30px}#s-pick .bar{padding-top:14px}.map-back{top:14px}
+}
+
+/* ===== khung máy gập màn hình lớn (mở ra gần vuông, nếp gấp ở giữa, camera đục lỗ góc phải) ===== */
+.fold-hint{display:none}
+@media (min-width:700px){
+  body{gap:32px;padding:20px}
+  .device{padding:4px;border-radius:44px;
+    background:linear-gradient(150deg,#e9eaec 0,#a7abaf 16%,#f4f5f6 33%,#8d9196 50%,#eceef0 66%,#9a9ea3 84%,#d9dbdd 100%)}
+  .device::before{left:auto;right:150px;top:-2px;width:64px;height:4px;box-shadow:-82px 0 0 #9da1a6}  /* nút trên cạnh */
+  .device::after{display:none}
+  .phone{--h:min(640px,100vh - 56px,(100vw - 120px) * .78);height:var(--h);width:calc(var(--h) * 1.28);
+    border:9px solid #050506;border-radius:40px}
+  .phone .screen{border-radius:31px}
+  .punch{position:absolute;top:13px;right:22px;width:13px;height:13px;border-radius:50%;z-index:1001;pointer-events:none;
+    background:radial-gradient(circle at 35% 35%,#2a3a55 0,#05070c 62%);box-shadow:0 0 0 2px #000}
+  .ios-status{height:40px;padding:2px 50px 0 28px;font-size:14px}
+  .home-ind{width:120px;bottom:6px}
+  /* trang chủ: 2 cột */
+  #homeMap{width:50%;height:100%;opacity:.4}
+  #homeMap::after{background:linear-gradient(180deg,transparent 45%,var(--surface))}
+  .home-scroll{display:grid;grid-template-columns:1fr 1fr;padding-top:0;padding-bottom:0;overflow:hidden}
+  .col-a,.col-b{overflow-y:auto;scrollbar-width:none;padding-top:40px;padding-bottom:110px}
+  .col-a::-webkit-scrollbar,.col-b::-webkit-scrollbar{display:none}
+  .col-b .sec-h:first-child{padding-top:14px}
+  .fold-hint{display:block;margin:18px;padding:12px 14px;border-radius:16px;font-size:12.5px;color:var(--muted);
+    background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line)}
+  .bigcard{height:150px}
+  .pillnav{left:18px;right:auto;width:calc(50% - 112px);bottom:22px}
+  .fab{bottom:22px;right:auto;left:calc(50% - 86px)}
+  /* chọn điểm đến: trái là ô nhập + gợi ý, phải là bản đồ */
+  #s-pick{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto}
+  #s-pick > .bar{grid-column:1;grid-row:1;padding-top:44px}
+  #s-pick > .route{grid-column:1;grid-row:2}
+  #s-pick > .scroll{grid-column:1;grid-row:3;min-height:0}
+  #s-pick > .pick-foot{grid-column:1;grid-row:4;padding-bottom:22px}
+  #s-pick > #pickMap{grid-column:2;grid-row:1 / span 4;height:auto;min-height:0;margin:0;border-radius:0 31px 31px 0;box-shadow:none}
+  /* xác nhận: bản đồ trái, bảng chọn xe phải */
+  #s-confirm{flex-direction:row}
+  #s-confirm #map{flex:1 1 50%}
+  #s-confirm .sheet{flex:0 0 50%;margin-top:0;border-radius:0;padding:52px 20px 26px;overflow-y:auto;box-shadow:-8px 0 24px rgba(0,0,0,.06)}
+  #s-confirm .sheet::before{display:none}
+  .map-back{top:46px}
+  /* cài đặt + toast: nằm giữa */
+  .overlay{align-items:center;justify-content:center}
+  .panel{width:min(420px,90%);border-radius:24px;padding-bottom:22px}
+  .toast{left:25%;right:25%;bottom:80px}
+}
+@media (max-width:699px){
+  body{display:block}
+  .device{padding:0;border-radius:0;background:none;box-shadow:none;width:100%}
+  .device::before,.device::after,.punch,.ios-status,.home-ind{display:none}
+  .phone{width:100%;height:100vh;border:0;border-radius:0}
+  .phone .screen{border-radius:0}
+  .home-scroll{padding-top:30px}#s-pick .bar{padding-top:14px}.map-back{top:14px}
+}
+@media (max-width:1180px){.side{display:none}}
+/* màn đăng nhập (Cognito) */
+#s-login{z-index:950;justify-content:center;overflow-y:auto;padding:40px 28px;background:var(--surface)}
+#s-login.hidden{display:none}
+#loginForm{width:100%;max-width:360px;margin:0 auto}
+.login-logo{font-size:46px;line-height:1}
+.login-h{font-size:28px;font-weight:800;margin:10px 0 4px;color:var(--brand-dark)}
+.login-sub{color:var(--muted);margin-bottom:22px;font-size:14px}
+.login-err{color:#d0453a;font-size:13px;min-height:18px;margin:2px 0 6px}
+.login-go{display:block;text-align:center;text-decoration:none;margin:4px 0 0;width:100%}
+.login-hint{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.55}
+.acct{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-bottom:14px;border-radius:12px;background:var(--surface-2);font-size:13px}
+.acct b{display:block;font-size:14px}
+.acct .link{color:#d0453a;font-weight:700}
+.field input:disabled{opacity:.6}
+</style>
+</head>
+<body>
+<div class="device"><div class="phone" id="phone">
+  <div class="punch" aria-hidden="true"></div>
+  <div class="ios-status" aria-hidden="true"><span id="clock">9:41</span><span class="icons">
+    <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.2-1.2A10.2 10.2 0 0 0 8 .5 10.2 10.2 0 0 0 .8 3.4L2 4.6a8.5 8.5 0 0 1 6-2.4z"/><path d="M8 5.6c1.4 0 2.6.5 3.6 1.4l1.2-1.2A6.8 6.8 0 0 0 8 3.9a6.8 6.8 0 0 0-4.8 1.9L4.4 7c1-.9 2.2-1.4 3.6-1.4z"/><path d="M8 9l2.4-1.6A3.4 3.4 0 0 0 8 7.4c-.9 0-1.8.4-2.4 1L8 11.5 10.4 9z" opacity="0"/><circle cx="8" cy="10" r="1.8"/></svg>
+    <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.8" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="18" height="9" rx="2.5" fill="currentColor"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="currentColor" opacity=".45"/></svg>
+  </span></div>
+  <div class="home-ind" aria-hidden="true"></div>
+
+  <!-- 0. Đăng nhập (Cognito, chỉ hiện khi server demo bật đăng nhập) -->
+  <section class="screen hidden" id="s-login">
+    <div id="loginForm">
+      <div class="login-logo">🚕</div>
+      <div class="login-h">Đi Đâu</div>
+      <div class="login-sub">Đăng nhập để xem gợi ý Nhà / Công ty của bạn</div>
+      <div class="login-err" id="loginErr" role="alert"></div>
+      <a class="cta login-go" href="/auth/login" id="loginBtn">Đăng nhập</a>
+      <div class="login-hint">Bấm Đăng nhập, app chuyển sang trang đăng nhập của Amazon Cognito (OAuth 2.0, Authorization Code + PKCE).
+        Đăng nhập xong Cognito đưa bạn quay lại đây; app không nhìn thấy mật khẩu.<br><br>
+        Tài khoản demo: <b>userNNN@example.com</b>, NNN là mã user GeoLife (ví dụ <b>user153@example.com</b>), chỉ xem được gợi ý của chính mình.
+        <b>admin@example.com</b> xem được mọi user. Mật khẩu do người chạy demo đặt.</div>
+    </div>
+  </section>
+
+  <!-- 1. Trang chủ -->
+  <section class="screen" id="s-home">
+    <div id="homeMap" aria-hidden="true"></div>
+    <div class="home-scroll"><div class="col-a">
+      <div class="home-top">
+        <span class="hello">Chào buổi chiều 👋</span>
+        <button class="chip" id="userChip" title="Đổi người dùng">👤 <span id="userLabel">002</span> ⚙</button>
+      </div>
+      <div class="search-row">
+        <button class="search" data-go="pick"><span class="mag"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span class="grow">Bạn muốn đi đâu?</span></button>
+        <button class="round" id="locateBtn" aria-label="Lấy vị trí của tôi"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg></button>
+      </div>
+      <div class="big2">
+        <button class="bigcard" data-go="pick"><span class="bt">Đặt xe</span><span class="bs">Đi ngay, gợi ý Nhà/Công ty</span><span class="bi">🚕</span></button>
+        <button class="bigcard" id="payCard"><span class="bt">Quản lý thanh toán</span><span class="bs">Thẻ, ví, hoá đơn</span><span class="bi">💳</span></button>
+      </div>
+      <div class="fold-hint">📱 Màn hình gập: bên trái đặt xe, bên phải dịch vụ và ưu đãi.</div>
+      </div><div class="col-b">
+      <div class="sec-h"><span>Dịch vụ khác</span><button class="link" id="seeAll">Xem tất cả</button></div>
+      <div class="services">
+        <button class="svc" data-go="pick"><span class="ic">🚗</span>Ô tô</button>
+        <button class="svc" data-go="pick"><span class="ic">🛵</span>Xe máy</button>
+        <button class="svc soon"><span class="ic">🎁</span>Thẻ quà tặng</button>
+        <button class="svc soon"><span class="ic">🪧</span>Liên tỉnh</button>
+        <button class="svc soon"><span class="ic">💎</span>Hội viên</button>
+        <button class="svc soon"><span class="ic">🔑</span>Thuê xe tự lái</button>
+        <button class="svc data-later" data-go="pick"><span class="ic">📅</span>Hẹn giờ</button>
+        <button class="svc soon"><span class="ic">🧳</span>Thuê xe theo giờ</button>
+      </div>
+      <div class="banners" id="banners">
+        <div class="banner b1"><small>Tính năng mới</small><b>Gợi ý Nhà &amp; Công ty</b><span>Mở ô "Bạn muốn đi đâu?" là thấy ngay điểm đến quen thuộc, tính từ lịch sử đi lại của bạn.</span><em>🏠 🏢</em></div>
+        <div class="banner b2"><small>Bản demo</small><b>Dữ liệu GeoLife</b><span>Gợi ý lấy từ lần chạy model gần nhất qua Home/Office API.</span><em>🗺️</em></div>
+        <div class="banner b3"><small>Ưu đãi (giả)</small><b>Giảm 25% chuyến đầu</b><span>Chỉ để trang trí, không áp dụng thật.</span><em>🎟️</em></div>
+      </div>
+      <div class="dots" id="bdots"><i class="on"></i><i></i><i></i></div>
+      <div class="sec-h"><span>Ưu đãi thanh toán</span></div>
+      <div class="promo2"><span class="p-ic">💳</span><span><b>Liên kết ví điện tử</b><br><small>Thanh toán một chạm, hoàn tiền cho chuyến đầu (giả lập)</small></span></div>
+    </div></div>
+    <nav class="pillnav">
+      <button class="on" aria-label="Trang chủ"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></button><button aria-label="Hoạt động"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button><button aria-label="Thông báo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button><button aria-label="Tài khoản"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></button>
+    </nav>
+    <button class="fab" id="fabGift" aria-label="Ưu đãi"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8S10 3 7.5 4.5 9 8 12 8zM12 8s2-5 4.5-3.5S15 8 12 8z"/></svg><small>Ưu đãi</small></button>
+  </section>
+
+  <!-- 2. Chọn địa điểm -->
+  <section class="screen hidden" id="s-pick">
+    <div class="bar"><button class="back" data-go="home" aria-label="Quay lại">←</button><h2>Chọn điểm đến</h2></div>
+    <div class="route">
+      <label id="lblFrom"><span class="dot from"></span><span class="fld"><input id="fromInput" value="Vị trí hiện tại"><small class="coord" id="coordFrom"></small></span><span class="hint" id="hintFrom"></span></label>
+      <label id="lblDest" class="active"><span class="dot"></span><span class="fld"><input id="destInput" placeholder="Nhập địa chỉ, hoặc chạm bản đồ"><small class="coord" id="coordDest"></small></span><span class="hint" id="hintDest">chạm map để chọn</span></label>
+    </div>
+    <div id="pickMap"><div class="map-tip" id="mapTip">Chạm bản đồ để đặt điểm đến</div></div>
+    <div class="scroll" id="pickScroll">
+      <div class="section-h"><span>Gợi ý cho bạn</span><span class="src" id="srcPill">…</span></div>
+      <div id="suggest"></div>
+      <div class="section-h"><span id="recentH">Tìm gần đây</span></div>
+      <div id="recent"></div>
+      <button class="debug-btn" id="debugBtn">Xem lời gọi API ▾</button>
+      <pre class="debug" id="debug" hidden></pre>
+    </div>
+    <div class="pick-foot"><button class="cta" id="goConfirm" disabled>Chọn điểm đến</button></div>
+  </section>
+
+  <!-- 3. Xác nhận chuyến -->
+  <section class="screen hidden" id="s-confirm">
+    <button class="back map-back" data-go="pick" aria-label="Quay lại">←</button>
+    <div id="map"></div>
+    <div class="sheet">
+      <div class="dest"><div class="pin" id="cPin">🏠</div><div class="grow"><div class="t" id="cTitle">Nhà</div><div class="s" id="cSub"></div></div></div>
+      <div id="rides"></div>
+      <button class="cta" style="margin:8px 0 0;width:100%" id="bookBtn">Đặt xe</button>
+    </div>
+  </section>
+
+  <!-- Cài đặt demo -->
+  <div class="overlay hidden" id="settings">
+    <div class="panel">
+      <h3>Cài đặt demo</h3>
+      <div class="acct" id="acctBox" hidden><span><b id="acctEmail"></b><span id="acctRole"></span></span><button class="link" id="logoutBtn">Đăng xuất</button></div>
+      <label class="field"><span id="setUserLbl">Mã người dùng (user GeoLife, ví dụ 002)</span>
+        <input id="setUser" list="userList" maxlength="64" autocomplete="off"><datalist id="userList"></datalist></label>
+      <label class="field">Nguồn dữ liệu
+        <select id="setMode"><option value="auto">Gọi API, lỗi kết nối thì dùng dữ liệu mẫu</option><option value="api">Chỉ gọi API</option><option value="mock">Chỉ dữ liệu mẫu</option></select></label>
+      <label class="field">Điểm đón
+        <select id="setLoc"><option value="gps">Vị trí thật (GPS của trình duyệt)</option><option value="beijing">Giả lập ở Bắc Kinh (gần dữ liệu GeoLife)</option></select></label>
+      <button class="cta" style="margin:4px 0 0;width:100%" id="saveSet">Lưu</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div></div>
+
+<aside class="side">
+  <p><b>Cách thử</b></p>
+  <p>Bấm <b>Đặt xe</b> hoặc ô tìm kiếm. Bản đồ tự ghim 🏠 Nhà và 🏢 Công ty trả về từ API; chạm gợi ý hoặc ghim để chọn, hoặc chạm bất kỳ chỗ nào trên bản đồ (kéo ghim để chỉnh). Bấm ô "Vị trí hiện tại" rồi chạm map để đổi điểm đón.</p>
+  <p>Màn chọn điểm đến gọi <code>/api/users/{id}/home-office</code> trên server demo, server này gọi tiếp Home/Office API.</p>
+  <p>Nhãn bên phải "Gợi ý cho bạn" cho biết dữ liệu đến từ API thật hay dữ liệu mẫu. "Xem lời gọi API" hiện đường dẫn, mã trạng thái, thời gian và JSON trả về.</p>
+  <p>Bấm 👤 ở góc trên để đổi người dùng và nguồn dữ liệu. Version model do API tự chọn theo canary (xem nhãn "API · …").</p>
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+// Điểm đón giả định: trung tâm Bắc Kinh (dữ liệu GeoLife chủ yếu ở đây)
+const PICKUP = {lat: 39.9087, lon: 116.3975};
+
+// Dữ liệu mẫu (KHÔNG phải kết quả model): chỉ dùng khi API không chạy, cùng dạng với spec 0.3.0
+const MOCK = {
+  "002": {user_id:"002", home:{lat:39.9263, lon:116.3372, confidence:100.0, n_votes:66}, office:{lat:39.8998, lon:116.3853, confidence:100.0, n_votes:44}, flags:[]},
+  "010": {user_id:"010", home:{lat:39.9752, lon:116.3301, confidence:null, n_votes:5}, office:{lat:39.9836, lon:116.3172, confidence:62.5, n_votes:12}, flags:["few_nights","unstable_office"]},
+  "035": {user_id:"035", home:{lat:40.0094, lon:116.3203, confidence:88.0, n_votes:31}, office:null, flags:["home_eq_office"]},
+  "041": {user_id:"041", home:null, office:null, flags:["no_stays"]},
+};
+const FLAG_TEXT = {
+  no_stays:"không có điểm dừng", no_night:"không có phiếu đêm", no_workday:"không có phiếu ngày làm việc",
+  few_nights:"ít đêm (<7)", few_workdays:"ít ngày làm việc (<7)", home_eq_office:"công ty trùng nhà",
+  unstable_home:"nhà chưa ổn định", unstable_office:"công ty chưa ổn định", multi_timezone:"nhiều múi giờ"
+};
+const RECENT = [
+  {t:"Sân bay quốc tế Bắc Kinh", s:"Thuận Nghĩa, Bắc Kinh", lat:40.0799, lon:116.6031},
+  {t:"Đại học Thanh Hoa", s:"Hải Điến, Bắc Kinh", lat:40.0000, lon:116.3264},
+];
+
+// ---------- trạng thái & lưu cài đặt (localStorage có thể bị chặn) ----------
+const store = {
+  get(k, d){ try { return localStorage.getItem("ridedemo."+k) ?? d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem("ridedemo."+k, v); } catch {} }
+};
+const qs = new URLSearchParams(location.search);
+const state = {
+  user: qs.get("user") || store.get("user", "002"),
+  ver: "",  // không chọn version: API tự chọn theo canary
+  mode: qs.get("mode") || store.get("mode", location.protocol === "file:" ? "mock" : "auto"),
+  last: null,     // kết quả lần gọi gần nhất
+  pickup: {...PICKUP, icon:"📍", t:"Vị trí hiện tại", s:"39.9087, 116.3975"},
+  dest: null,
+  loc: qs.get("loc") || store.get("loc", "gps"),
+  active: "dest", // ô đang chọn: chạm map sẽ đặt điểm cho ô này
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2600); }
+
+// ---------- điều hướng ----------
+function go(name){
+  for (const s of ["home","pick","confirm"]) $("s-"+s).classList.toggle("hidden", s !== name && s !== "home");
+  if (name === "home") { $("s-pick").classList.add("hidden"); $("s-confirm").classList.add("hidden"); }
+  if (name === "pick") { $("s-confirm").classList.add("hidden"); setTimeout(initPickMap, 260); if (!state.loadedFor || state.loadedFor !== key()) loadSuggestions(); }
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) go(b.dataset.go); });
+document.querySelectorAll(".svc.soon").forEach(b => b.onclick = () => toast("Bản demo chỉ có đặt xe."));
+const tick = () => { const d = new Date(); $("clock").textContent = d.getHours() + ":" + String(d.getMinutes()).padStart(2,"0"); };
+tick(); setInterval(tick, 30000);
+$("payCard").onclick = $("seeAll").onclick = $("fabGift").onclick = () => toast("Bản demo chỉ có đặt xe.");
+$("banners").addEventListener("scroll", e => { const el=e.target, k=Math.round(el.scrollLeft/el.clientWidth);
+  $("bdots").querySelectorAll("i").forEach((d,i)=>d.classList.toggle("on", i===k)); });
+const key = () => [state.user, state.ver, state.mode].join("|");
+
+// ---------- gọi API ----------
+async function fetchHomeOffice(){
+  const q = state.ver ? "?model_version=" + encodeURIComponent(state.ver) : "";
+  const path = "/api/users/" + encodeURIComponent(state.user) + "/home-office" + q;
+  const dbg = {request: "GET " + path, mode: state.mode};
+  if (state.mode === "mock") return mockResult(dbg, "đang chọn chỉ dùng dữ liệu mẫu");
+  const t0 = performance.now();
+  let res, body;
+  try {
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 8000);
+    res = await fetch(path, {headers:{Accept:"application/json"}, signal: ctl.signal});
+    clearTimeout(timer);
+    body = await res.json().catch(() => ({code:"bad_response", message:"không phải JSON"}));
+  } catch (err) {
+    dbg.error = String(err);
+    return state.mode === "auto" ? mockResult(dbg, "không gọi được server demo") : {kind:"error", status:0, body:{code:"network", message:String(err)}, dbg};
+  }
+  Object.assign(dbg, {status: res.status, ms_browser: Math.round(performance.now() - t0),
+    ms_api: res.headers.get("X-Upstream-Ms"), upstream: res.headers.get("X-Upstream-Path"),
+    x_model_version: res.headers.get("X-Model-Version"), body});
+  if (res.status === 502 && body.code === "api_unavailable" && state.mode === "auto") return mockResult(dbg, "API không chạy");
+  if (res.ok) return {kind:"api", body, dbg};
+  if (res.status === 404 && body.code === "user_not_found") return {kind:"notfound", body, dbg};
+  if (res.status === 401 && body.code === "login_required") showLogin("Phiên đăng nhập đã hết, đăng nhập lại.");
+  return {kind:"error", status: res.status, body, dbg};
+}
+function mockResult(dbg, why){
+  const m = MOCK[state.user];
+  dbg.fallback = "dữ liệu mẫu (" + why + ")";
+  if (!m) { dbg.body = {code:"user_not_found"}; return {kind:"notfound", mock:true, body:dbg.body, dbg}; }
+  const body = {...m, model_version: (state.ver || "heuristic-v1") + " (mẫu)"};
+  dbg.body = body;
+  return {kind:"api", mock:true, body, dbg};
+}
+
+// ---------- vẽ gợi ý ----------
+function km(a, b){
+  const R=6371, r=x=>x*Math.PI/180, dLa=r(b.lat-a.lat), dLo=r(b.lon-a.lon);
+  const h=Math.sin(dLa/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function confBadge(loc){
+  if (loc.confidence == null) return `<span class="badge low">${loc.n_votes} phiếu, chưa đủ để chấm</span>`;
+  const c = Math.round(loc.confidence);
+  return `<span class="badge ${c < 70 ? "low" : ""}">Độ chắc ${c}%</span>`;
+}
+function suggestionRow(kind, loc, flags){
+  const icon = kind === "home" ? "🏠" : "🏢", title = kind === "home" ? "Nhà" : "Công ty";
+  const myFlags = flags.filter(f => kind === "home" ? /night|home|stays|timezone/.test(f) : /workday|office|stays|timezone/.test(f));
+  const fl = myFlags.length ? `<div class="flags">${myFlags.map(f=>`<span class="flag">${esc(FLAG_TEXT[f]||f)}</span>`).join("")}</div>` : "";
+  if (!loc) {
+    return `<button class="item" disabled><span class="pin grey">${icon}</span><span class="grow"><div class="t">${title}</div>
+      <div class="s">Chưa xác định được</div>${fl}</span></button>`;
+  }
+  const d = km(state.pickup, loc);
+  return `<button class="item" data-pick="${kind}"><span class="pin">${icon}</span><span class="grow"><div class="t">${title}</div>
+    <div class="s addr">${esc(addrText(loc))}</div><div class="s">${fmt(loc)} · cách ${d.toFixed(1)} km · ${loc.n_votes} ${kind==="home"?"đêm":"ngày làm việc"}</div>${fl}</span>${confBadge(loc)}</button>`;
+}
+async function loadSuggestions(){
+  state.loadedFor = key();
+  $("userLabel").textContent = state.user;
+  $("suggest").innerHTML = '<div class="skel"></div><div class="skel"></div>';
+  $("srcPill").className = "src"; $("srcPill").textContent = "đang gọi API…";
+  const r = await fetchHomeOffice();
+  if (state.loadedFor !== key()) return;   // đã đổi user trong lúc chờ
+  state.last = r;
+  const pill = $("srcPill");
+  if (r.mock) { pill.className = "src mock"; pill.textContent = "Dữ liệu mẫu"; }
+  else if (r.kind === "error") { pill.className = "src err"; pill.textContent = "Lỗi API " + (r.status || ""); }
+  else { pill.className = "src"; pill.textContent = "API · " + (r.dbg.x_model_version || r.body.model_version || "?"); }
+
+  if (r.kind === "api") {
+    const b = r.body, flags = b.flags || [];
+    $("suggest").innerHTML = suggestionRow("home", b.home, flags) + suggestionRow("office", b.office, flags)
+      + (r.mock ? `<div class="note">API không trả lời nên đang hiện dữ liệu mẫu, không phải kết quả model. Chạy API rồi bấm 👤 → Lưu để thử lại.</div>` : "");
+  } else if (r.kind === "notfound") {
+    $("suggest").innerHTML = `<div class="note">Chưa có gợi ý cho người dùng ${esc(state.user)} (chưa qua lần chạy model nào). App thật sẽ ẩn mục này.${r.mock ? " Dữ liệu mẫu chỉ có 002, 010, 035, 041." : ""}</div>`;
+  } else {
+    const msg = r.body && (r.body.code + ": " + (r.body.message || "")) || "lỗi";
+    $("suggest").innerHTML = `<div class="note">Không lấy được gợi ý (${esc(msg)}). App vẫn cho tìm điểm đến bình thường.</div>`;
+  }
+  $("debug").textContent = JSON.stringify(r.dbg, null, 2);
+  drawSuggestionMarkers();
+  if (r.kind === "api") addrForSuggestions(r.body);
+}
+$("suggest").addEventListener("click", e => {
+  const b = e.target.closest("[data-pick]"); if (!b || !state.last) return;
+  const kind = b.dataset.pick, loc = state.last.body[kind];
+  choosePlace(kind);
+});
+$("recent").innerHTML = RECENT.map((p,i)=>`<button class="item" data-recent="${i}"><span class="pin grey">🕘</span><span class="grow"><div class="t">${esc(p.t)}</div><div class="s">${esc(p.s)}</div></span></button>`).join("");
+$("recent").addEventListener("click", e => { const b=e.target.closest("[data-recent]"); if (b){ const p=RECENT[+b.dataset.recent]; setPoint(state.active, {icon:"🕘",...p}, true); } });
+// ---------- bản đồ chọn điểm ----------
+let pmap, pLayers = {}, sugLayer;
+// Nền bản đồ: Esri (nhãn tiếng Anh) khi nhìn xa; Esri không có dữ liệu chi tiết ở Trung Quốc
+// nên zoom gần hơn ESRI_MAX thì tự đổi sang CARTO Voyager (dữ liệu OpenStreetMap, đủ mọi mức zoom).
+// Đổi ngưỡng bằng ?esrimax=15 trên URL nếu muốn.
+const ESRI_MAX = +(new URLSearchParams(location.search).get("esrimax") || 13);
+function addBase(m){
+  const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    {maxZoom:19, attribution:"Tiles © Esri"});
+  const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    {subdomains:"abcd", maxZoom:20, attribution:"© OpenStreetMap © CARTO"});
+  const sync = () => {
+    const want = m.getZoom() > ESRI_MAX ? carto : esri, other = want === esri ? carto : esri;
+    if (!m.hasLayer(want)) want.addTo(m);
+    if (m.hasLayer(other)) m.removeLayer(other);
+  };
+  m.on("zoomend", sync);
+  m.whenReady(sync);
+  return m;
+}
+const fmt = p => `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}`;
+const PICKED = "Điểm đã chọn trên bản đồ";
+// tên địa điểm cho 1 tọa độ: lấy từ cache; chưa có thì "đang tra…"; tra lỗi thì mới dùng tọa độ
+function addrText(p){
+  const k = p.lat.toFixed(5) + "," + p.lon.toFixed(5);
+  if (!(k in addrCache)) return "đang tra tên địa điểm…";
+  const a = addrCache[k];
+  return a ? ([a.name, a.area].filter(Boolean).join(", ") || "Không tra được tên địa điểm") : "Không tra được tên địa điểm";
+}
+function cachedAddr(p){ const a = addrCache[p.lat.toFixed(5) + "," + p.lon.toFixed(5)]; return a || null; }
+const icon = (html, cls="mk") => window.L && L.divIcon({html:`<div class="${cls}">${html}</div>`, className:"", iconSize:[24,24], iconAnchor:[12,22]});
+function initPickMap(){
+  if (!window.L) { $("mapTip").textContent = "Không tải được bản đồ (cần mạng). Vẫn nhập được tọa độ."; return; }
+  if (!pmap) {
+    pmap = L.map("pickMap", {zoomControl:false}).setView([PICKUP.lat, PICKUP.lon], 12);
+    addBase(pmap);
+    pmap.on("click", e => setPoint(state.active, {icon:"📍", t:"Điểm đã chọn trên bản đồ", lat:e.latlng.lat, lon:e.latlng.lng}));
+    drawPoint("from"); drawPoint("dest"); drawSuggestionMarkers();
+  }
+  pmap.invalidateSize();
+}
+function drawPoint(which){
+  if (!pmap) return;
+  const p = which === "from" ? state.pickup : state.dest;
+  if (pLayers[which]) pLayers[which].remove();
+  if (!p) return;
+  const ic = which === "from" ? icon("", "mk dot-mk\" style=\"background:#0fa5a0") : icon("", "mk dot-mk\" style=\"background:#c0392b");
+  pLayers[which] = L.marker([p.lat, p.lon], {icon: ic, draggable: true, zIndexOffset: 1000})
+    .bindTooltip(which === "from" ? "Điểm đón (kéo để đổi)" : "Điểm đến (kéo để đổi)")
+    .on("dragend", e => { const ll = e.target.getLatLng(); setPoint(which, {icon:"📍", t:"Điểm đã chọn trên bản đồ", lat:ll.lat, lon:ll.lng}); })
+    .addTo(pmap);
+}
+function drawSuggestionMarkers(){
+  if (!pmap) return;
+  if (sugLayer) sugLayer.remove();
+  const b = state.last && state.last.kind === "api" ? state.last.body : null;
+  const pts = [];
+  sugLayer = L.layerGroup();
+  for (const kind of ["home", "office"]) {
+    const loc = b && b[kind]; if (!loc) continue;
+    pts.push([loc.lat, loc.lon]);
+    const name = kind === "home" ? "Nhà" : "Công ty";
+    const conf = loc.confidence == null ? `${loc.n_votes} phiếu` : `độ chắc ${Math.round(loc.confidence)}%`;
+    L.marker([loc.lat, loc.lon], {icon: icon(kind === "home" ? "🏠" : "🏢")})
+      .bindTooltip(`${name} · ${conf}`, {direction:"top", offset:[0,-18]})
+      .on("click", () => choosePlace(kind)).addTo(sugLayer);
+  }
+  sugLayer.addTo(pmap);
+  // điểm đón ở xa (ví dụ GPS thật ở Việt Nam, dữ liệu GeoLife ở Bắc Kinh) thì chỉ khung theo gợi ý
+  if (pts.length && pts.every(q => km(state.pickup, {lat:q[0], lon:q[1]}) < 50)) pts.push([state.pickup.lat, state.pickup.lon]);
+  if (pts.length > 1) pmap.fitBounds(pts, {padding:[36,36], maxZoom:ESRI_MAX});
+  else if (pts.length === 1) pmap.setView(pts[0], ESRI_MAX);
+}
+function choosePlace(kind){
+  const loc = state.last.body[kind];
+  const a = cachedAddr(loc);
+  setPoint(state.active, {icon: kind==="home"?"🏠":"🏢", t: kind==="home"?"Nhà":"Công ty", lat: loc.lat, lon: loc.lon, ...(a ? {addr: a} : {})}, true);
+}
+function setPoint(which, p, fly){
+  if (!p.addr && cachedAddr(p)) p = {...p, addr: cachedAddr(p)};
+  if (p.t === PICKED && p.addr && p.addr.name) p = {...p, t: p.addr.name};
+  p = {...p, s: p.addr ? ([p.addr.name, p.addr.area].filter(Boolean).join(", ") || fmt(p)) : "đang tra tên địa điểm…"};
+  if (which === "from") state.pickup = p; else state.dest = p;
+  const place = p.addr ? (p.addr.name || p.addr.area || fmt(p)) : "đang tra tên…";
+  const label = p.t === PICKED ? place : (p.addr && p.t === p.addr.name ? p.t : `${p.t} · ${place}`);
+  $(which === "from" ? "fromInput" : "destInput").value = label;
+  $(which === "from" ? "coordFrom" : "coordDest").textContent = fmt(p);
+  drawPoint(which);
+  if (fly && pmap) pmap.flyTo([p.lat, p.lon], ESRI_MAX, {duration:.6});  // dừng ở mức còn bản đồ Esri tiếng Anh
+  $("goConfirm").disabled = !state.dest;
+  $("goConfirm").textContent = state.dest ? `Đi đến ${state.dest.t === PICKED ? "điểm đã chọn" : state.dest.t}` : "Chọn điểm đến";
+  if (which === "from" && state.last && state.last.kind === "api") { /* cập nhật khoảng cách */
+    const b = state.last.body, flags = b.flags || [];
+    $("suggest").querySelectorAll(".item").length && ($("suggest").innerHTML = suggestionRow("home", b.home, flags) + suggestionRow("office", b.office, flags));
+  }
+  if (which === "from") setActive("dest");
+  if (!p.addr) reverse(which, p);
+}
+// Tra tên địa chỉ thật cho điểm vừa chọn (qua serve.py -> OpenStreetMap Nominatim)
+const addrCache = {}, inflight = {};
+async function lookupAddr(lat, lon){
+  const k = lat.toFixed(5) + "," + lon.toFixed(5);
+  if (k in addrCache) return addrCache[k];
+  if (inflight[k]) return inflight[k];
+  inflight[k] = (async () => {
+    for (let i = 0; i < 3; i++) {           // Nominatim giới hạn ~1 lần/giây nên thử lại vài lần
+      try {
+        const r = await fetch(`/api/geocode/reverse?lat=${lat}&lon=${lon}`);
+        if (r.ok) return addrCache[k] = await r.json();
+      } catch {}
+      await new Promise(res => setTimeout(res, 1200 * (i + 1)));
+    }
+    return addrCache[k] = null;
+  })();
+  try { return await inflight[k]; } finally { delete inflight[k]; }
+}
+async function reverse(which, p){
+  const a = await lookupAddr(p.lat, p.lon);
+  const cur = which === "from" ? state.pickup : state.dest;
+  if (cur !== p) return;                    // người dùng đã chọn điểm khác
+  if (!a) {                                 // tra không được thì mới hiện tọa độ
+    p.s = fmt(p);                            // tọa độ vẫn hiện ở dòng nhỏ bên dưới
+    $(which === "from" ? "fromInput" : "destInput").value = p.t === PICKED ? "Điểm đã chọn (không tra được tên)" : p.t;
+    return;
+  }
+  p.addr = a; p.s = [a.name, a.area].filter(Boolean).join(", ") || fmt(p);
+  const picked = p.t === "Điểm đã chọn trên bản đồ";
+  if (picked && a.name) p.t = a.name;
+  $(which === "from" ? "fromInput" : "destInput").value = which === "from" && p.t === "Vị trí hiện tại" ? `Vị trí hiện tại · ${a.name || a.area}` : (picked ? p.t : `${p.t} · ${a.name || a.area}`);
+  if (pLayers[which]) pLayers[which].setTooltipContent(esc(p.s) + "<br>" + fmt(p));
+  if (which === "dest") $("goConfirm").textContent = `Đi đến ${p.t}`;
+}
+async function addrForSuggestions(b){
+  for (const kind of ["home", "office"]) {
+    const loc = b[kind]; if (!loc) continue;
+    const a = await lookupAddr(loc.lat, loc.lon);
+    const el = document.querySelector(`[data-pick="${kind}"] .addr`);
+    if (el && state.last && state.last.body === b) el.textContent = addrText(loc);
+  }
+}
+async function searchAddr(which, q){
+  $("recentH").textContent = "Kết quả tìm kiếm";
+  $("recent").innerHTML = '<div class="skel"></div>';
+  let items = [];
+  try {
+    const p = state.pickup;
+    const r = await fetch(`/api/geocode/search?q=${encodeURIComponent(q)}&lat=${p.lat}&lon=${p.lon}`);
+    items = r.ok ? (await r.json()).items : null;
+  } catch { items = null; }
+  if (items === null) { $("recent").innerHTML = '<div class="note">Không tìm được (cần chạy qua serve.py và có mạng).</div>'; return; }
+  if (!items.length) { $("recent").innerHTML = `<div class="note">Không thấy "${esc(q)}".</div>`; return; }
+  state.results = items;
+  $("recent").innerHTML = items.map((x,i)=>`<button class="item" data-res="${i}"><span class="pin grey">📍</span><span class="grow"><div class="t">${esc(x.name)}</div><div class="s">${esc(x.area)} · cách ${km(state.pickup,x).toFixed(1)} km</div></span></button>`).join("");
+}
+$("recent").addEventListener("click", e => { const b=e.target.closest("[data-res]"); if (!b) return;
+  const x = state.results[+b.dataset.res];
+  setPoint(state.active, {icon:"📍", t:x.name, lat:x.lat, lon:x.lon, addr:{name:x.name, area:x.area}}, true); });
+function setActive(which){
+  state.active = which;
+  $("lblFrom").classList.toggle("active", which === "from"); $("lblDest").classList.toggle("active", which === "dest");
+  $("hintFrom").textContent = which === "from" ? "chạm map để chọn" : "";
+  $("hintDest").textContent = which === "dest" ? "chạm map để chọn" : "";
+  $("mapTip").textContent = which === "from" ? "Chạm bản đồ để đặt điểm đón" : "Chạm bản đồ để đặt điểm đến";
+}
+for (const [id, which] of [["fromInput","from"],["destInput","dest"]]) {
+  $(id).addEventListener("focus", () => { setActive(which); $(id).select(); });
+  $(id).addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    const m = $(id).value.match(/(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)/);
+    if (m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) { setPoint(which, {icon:"📍", t:"Điểm đã chọn trên bản đồ", lat:+m[1], lon:+m[2]}, true); $(id).blur(); }
+    else if ($(id).value.trim().length >= 2) { searchAddr(which, $(id).value.trim()); $(id).blur(); }
+  });
+}
+$("goConfirm").onclick = () => { if (state.dest) openConfirm(state.dest); };
+$("debugBtn").onclick = () => { const d=$("debug"); d.hidden=!d.hidden; $("debugBtn").textContent = d.hidden ? "Xem lời gọi API ▾" : "Ẩn lời gọi API ▴"; };
+
+// ---------- màn xác nhận ----------
+let map, layer;
+function openConfirm(p){
+  $("s-confirm").classList.remove("hidden");
+  $("cPin").textContent = p.icon; $("cTitle").textContent = p.t; $("cSub").textContent = (p.s && p.s !== fmt(p) ? p.s + " · " : "") + fmt(p);
+  const d = km(state.pickup, p);
+  const rides = [["🛵","Xe máy",12000,4300],["🚗","Ô tô 4 chỗ",20000,11000],["🚙","Ô tô 7 chỗ",25000,13500]];
+  $("rides").innerHTML = rides.map(([ic,n,base,perKm],i)=>{
+    const price = Math.round((base + perKm*Math.max(d-2,0))/1000)*1000;
+    return `<button class="ride ${i===0?"on":""}"><span style="font-size:24px">${ic}</span><span class="grow"><div class="t">${n}</div><div class="s">${d.toFixed(1)} km · ~${Math.max(3,Math.round(d*2.6))} phút</div></span><b>${price.toLocaleString("vi-VN")}đ</b></button>`;
+  }).join("");
+  if (!window.L) { $("map").innerHTML = '<div class="note">Không tải được bản đồ (cần mạng).</div>'; return; }
+  setTimeout(() => {
+    if (!map) {
+      map = L.map("map", {zoomControl:false, attributionControl:true});
+      addBase(map);
+    }
+    map.invalidateSize();
+    if (layer) layer.remove();
+    const a=[state.pickup.lat,state.pickup.lon], b=[p.lat,p.lon];
+    layer = L.layerGroup([
+      L.circleMarker(a,{radius:8,color:"#0fa5a0",fillOpacity:1}).bindTooltip("Điểm đón"),
+      L.circleMarker(b,{radius:9,color:"#c0392b",fillOpacity:1}).bindTooltip(p.t),
+      L.polyline([a,b],{color:"#0fa5a0",weight:4,dashArray:"6 8"})
+    ]).addTo(map);
+    map.fitBounds([a,b],{padding:[40,40], maxZoom:ESRI_MAX});
+  }, 260);
+}
+$("rides").addEventListener("click", e => { const b=e.target.closest(".ride"); if(!b) return; $("rides").querySelectorAll(".ride").forEach(x=>x.classList.toggle("on", x===b)); });
+$("bookBtn").onclick = () => toast("Bản demo: không đặt chuyến thật.");
+
+// ---------- cài đặt ----------
+function openSettings(){
+  $("setUser").value = state.user; $("setMode").value = state.mode; $("setLoc").value = state.loc;
+  const locked = !!(state.auth && state.auth.auth && !state.auth.admin);
+  $("setUser").disabled = locked;
+  $("setUserLbl").textContent = locked ? "Mã người dùng (theo tài khoản đang đăng nhập)" : "Mã người dùng (user GeoLife, ví dụ 002)";
+  $("settings").classList.remove("hidden");
+  if (!state.usersLoaded && state.mode !== "mock") {
+    state.usersLoaded = true;
+    fetch("/api/users").then(r => r.ok ? r.json() : null).then(j => {
+      const ids = j && j.items ? j.items.map(x => x.user_id) : Object.keys(MOCK);
+      $("userList").innerHTML = ids.map(u => `<option value="${esc(u)}">`).join("");
+    }).catch(() => { $("userList").innerHTML = Object.keys(MOCK).map(u => `<option value="${u}">`).join(""); });
+  }
+}
+$("userChip").onclick = openSettings;
+document.querySelector('.pillnav [aria-label="Tài khoản"]').onclick = openSettings;
+$("settings").addEventListener("click", e => { if (e.target.id === "settings") $("settings").classList.add("hidden"); });
+$("saveSet").onclick = () => {
+  const u = $("setUser").value.trim();
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(u)) { toast("Mã người dùng chỉ gồm chữ, số, - và _"); return; }
+  const locChanged = state.loc !== $("setLoc").value;
+  Object.assign(state, {user:u, mode:$("setMode").value, loc:$("setLoc").value});
+  store.set("loc", state.loc); if (locChanged) locate();
+  store.set("user", state.user); store.set("mode", state.mode);
+  $("userLabel").textContent = state.user;
+  $("settings").classList.add("hidden");
+  state.loadedFor = null;
+  if (!$("s-pick").classList.contains("hidden")) loadSuggestions();
+};
+$("userLabel").textContent = state.user;
+// bản đồ nền trang chủ: chỉ ghim vị trí hiện tại (gợi ý Nhà/Công ty lấy khi mở màn chọn điểm đến)
+const hr = new Date().getHours();
+document.querySelector(".hello").textContent = (hr < 11 ? "Chào buổi sáng" : hr < 18 ? "Chào buổi chiều" : "Chào buổi tối") + " 👋";
+let hmap, hereMk, hereCircle;
+function showHere(){
+  const p = state.pickup;
+  if (!hmap) return;
+  hereCircle.setLatLng([p.lat, p.lon]).setRadius(p.acc || 120);
+  hereMk.setLatLng([p.lat, p.lon]);
+  hmap.setView([p.lat, p.lon], ESRI_MAX);
+}
+function setPickup(p){
+  state.pickup = {...p, icon:"📍", t:"Vị trí hiện tại", s: fmt(p)};
+  $("fromInput").value = "Vị trí hiện tại";
+  $("coordFrom").textContent = fmt(p);
+  drawPoint("from"); showHere();
+  reverse("from", state.pickup);
+  if (state.last && state.last.kind === "api") drawSuggestionMarkers();
+}
+// Lấy vị trí thật bằng Geolocation API (chạy được trên http://localhost; trình duyệt sẽ hỏi quyền)
+function locate(){
+  if (state.loc !== "gps") { setPickup(PICKUP); return; }
+  if (!navigator.geolocation) { toast("Trình duyệt không hỗ trợ định vị, dùng điểm ở Bắc Kinh."); setPickup(PICKUP); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => { setPickup({lat: pos.coords.latitude, lon: pos.coords.longitude, acc: Math.min(pos.coords.accuracy, 2000)});
+             toast(`Đã lấy vị trí thật (sai số ~${Math.round(pos.coords.accuracy)} m).`); },
+    err => { toast("Không lấy được vị trí (" + (err.code === 1 ? "bị từ chối quyền" : "lỗi định vị") + "), dùng điểm ở Bắc Kinh."); setPickup(PICKUP); },
+    {enableHighAccuracy: true, timeout: 10000, maximumAge: 60000});
+}
+if (window.L) {
+  hmap = L.map("homeMap", {zoomControl:false, attributionControl:false, dragging:false, scrollWheelZoom:false, doubleClickZoom:false, keyboard:false}).setView([PICKUP.lat, PICKUP.lon], ESRI_MAX);
+  addBase(hmap);
+  hereCircle = L.circle([PICKUP.lat, PICKUP.lon], {radius:120, color:"#0fa5a0", weight:1, fillOpacity:.15}).addTo(hmap);
+  hereMk = L.marker([PICKUP.lat, PICKUP.lon], {icon: icon("", "mk dot-mk\" style=\"background:#0fa5a0")}).bindTooltip("Bạn đang ở đây").addTo(hmap);
+}
+$("locateBtn").onclick = locate;
+locate();
+
+// ---------- đăng nhập (Cognito qua server demo; token nằm ở server, trình duyệt chỉ giữ cookie phiên) ----------
+function applyAccount(me){
+  state.auth = me && me.auth ? me : null;
+  if (state.auth) {
+    if (!me.admin) state.user = me.geolife_id || "—";    // tài khoản thường: luôn là user của mình
+    $("acctEmail").textContent = me.email;
+    $("acctRole").textContent = me.admin ? "Admin: xem được mọi user" : "User GeoLife " + (me.geolife_id || "?");
+  }
+  $("acctBox").hidden = !state.auth;
+  $("userLabel").textContent = state.user;
+  state.last = null; state.loadedFor = null;
+}
+function showLogin(msg){
+  $("settings").classList.add("hidden");
+  $("s-login").classList.remove("hidden");
+  $("loginErr").textContent = msg || state.loginErr || "";
+  setTimeout(() => $("loginBtn").focus(), 60);
+}
+async function checkMe(){
+  if (location.protocol === "file:") return;
+  try {
+    const r = await fetch("/api/me", {headers:{Accept:"application/json"}});
+    if (r.status === 401) return showLogin();
+    if (r.ok) applyAccount(await r.json());
+  } catch { /* server demo không chạy: giữ chế độ dữ liệu mẫu */ }
+}
+// Cognito chuyển về /auth/callback; lỗi (huỷ đăng nhập, state hết hạn...) quay về trang chủ kèm ?login_error=
+if (qs.get("login_error")) {
+  state.loginErr = "Đăng nhập chưa xong: " + qs.get("login_error");
+  history.replaceState(null, "", location.pathname);
+}
+$("logoutBtn").onclick = async () => {
+  await fetch("/api/logout", {method:"POST"}).catch(() => {});
+  location.href = "/auth/logout";   // xoá cả phiên ở Cognito, rồi Cognito đưa về trang chủ (màn đăng nhập)
+};
+checkMe();
+</script>
+</body>
+</html>

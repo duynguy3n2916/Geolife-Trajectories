@@ -95,9 +95,7 @@ Home_Office/
 │   └── duplicates/          kết quả đào sâu timestamp trùng của notebook 01 (chỉ trên máy, không có trong git)
 └── reports/                 chỉ chứa slide (một file HTML mỗi bộ: ← → chuyển slide, Ctrl+P xuất PDF)
     ├── cp1_bao_cao.html  slide CP1 làm lại từ đầu
-    ├── cp2_tong_quan.html   CP2: tổng quan kiến trúc và các phương án
-    ├── cp2_phuong_an.html   CP2: so sánh phương án từng phần
-    ├── cp2_kien_truc_aws.html   CP2: sơ đồ kiến trúc AWS đang chạy
+    ├── cp2_bao_cao.html  slide CP2: tổng quan, các phương án và phương án đã chọn
     └── _fig_slide/          hình xuất từ notebook để dán vào slide (chỉ trên máy)
 ```
 

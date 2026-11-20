@@ -92,7 +92,7 @@ Chạy bằng `notebooks/test/15_test.ipynb` (T1 in cấu hình, T2–T4 đặt 
 Quy trình, từng file và lệnh: `deploy/README.md`, `deploy/terraform/README.md`.
 
 ### D21. Tính trước theo lô, API chỉ tra cứu; chạy serverless (Lambda + API Gateway)
-**Chốt 2026-11-13, thay phương án ECS Fargate trong `reports/cp2_phuong_an.html` (10/11).**
+**Chốt 2026-11-13, thay phương án ECS Fargate trong slide phương án ngày 10/11 (nay gộp vào `reports/cp2_bao_cao.html`).**
 - **Cách làm:** Lambda batch (image, 2048 MB, tối đa 15 phút) tính home / office cho từng (user, version) và ghi `results/<version>/<user>.json` trên S3; API Gateway HTTP API gọi Lambda tra cứu (zip, 256 MB) chỉ đọc file đó. API không chạy model trong request.
 - **Vì sao:** chạy model nặng (user lớn nhất 2,16 triệu điểm, hơn 1 phút) nên không hợp làm trong request; home / office ít đổi (A17); lưu lượng thấp (A18) nên trả tiền theo lần gọi rẻ hơn máy chạy 24/7 (ECS Fargate + ALB ước 58–81 USD/tháng). Không cần load balancer: Lambda tự chạy nhiều bản song song.
 - **Đổi kèm:** bỏ upload GPS qua API (`POST /v1/infer`), API chỉ còn `GET /health` và `GET /v1/users/{user_id}/home-office` (`api/openapi.yaml` 1.0.0-cp2). Bản FastAPI cũ chuyển vào `archive/`.
